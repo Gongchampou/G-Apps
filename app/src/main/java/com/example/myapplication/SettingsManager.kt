@@ -15,6 +15,7 @@ class SettingsManager(context: Context) {
     val darkModeFlow: Flow<Boolean> = dataStore.data.map { it[DARK_MODE] ?: false }
     val notificationsFlow: Flow<Boolean> = dataStore.data.map { it[NOTIFICATIONS] ?: true }
     val soundEffectsFlow: Flow<Boolean> = dataStore.data.map { it[SOUND_EFFECTS] ?: true }
+    val vibrationFlow: Flow<Boolean> = dataStore.data.map { it[VIBRATION] ?: true }
 
     suspend fun setDarkMode(enabled: Boolean) {
         dataStore.edit { it[DARK_MODE] = enabled }
@@ -28,9 +29,14 @@ class SettingsManager(context: Context) {
         dataStore.edit { it[SOUND_EFFECTS] = enabled }
     }
 
+    suspend fun setVibration(enabled: Boolean) {
+        dataStore.edit { it[VIBRATION] = enabled }
+    }
+
     companion object {
         private val DARK_MODE = booleanPreferencesKey("dark_mode")
         private val NOTIFICATIONS = booleanPreferencesKey("notifications")
         private val SOUND_EFFECTS = booleanPreferencesKey("sound_effects")
+        private val VIBRATION = booleanPreferencesKey("vibration")
     }
 }

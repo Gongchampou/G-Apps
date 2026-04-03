@@ -1,0 +1,2 @@
+Put your .webp or .png image files in this folder.
+The app will look for filenames matched in characters.json.

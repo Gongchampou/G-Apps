@@ -1,10 +1,22 @@
 package com.example.myapplication
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -24,10 +36,47 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     val isDarkMode: StateFlow<Boolean> = settingsManager.darkModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    // Task logic
-    fun addTask(name: String) {
+    val isNotificationsEnabled: StateFlow<Boolean> = settingsManager.notificationsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val isVibrationEnabled: StateFlow<Boolean> = settingsManager.vibrationFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val isSoundEnabled: StateFlow<Boolean> = settingsManager.soundEffectsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    private val _characters = MutableStateFlow<List<FocusCharacter>>(emptyList())
+    val characters = _characters.asStateFlow()
+
+    init {
+        loadCharacters()
+    }
+
+    private fun loadCharacters() {
         viewModelScope.launch {
-            taskDao.insertTask(Task(name = name))
+            try {
+                val jsonString = getApplication<Application>().assets.open("characters.json")
+                    .bufferedReader().use { it.readText() }
+                val listType = object : TypeToken<List<FocusCharacter>>() {}.type
+                val loadedCharacters: List<FocusCharacter> = Gson().fromJson(jsonString, listType)
+                _characters.value = loadedCharacters
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Fallback or empty list
+            }
+        }
+    }
+
+    // Task logic
+    fun addTask(name: String, minutes: Int = 25, characterImageName: String = "study_default") {
+        val millis = minutes * 60 * 1000L
+        viewModelScope.launch {
+            taskDao.insertTask(Task(
+                name = name, 
+                initialTimeMillis = millis, 
+                remainingTimeMillis = millis,
+                characterImageName = characterImageName
+            ))
         }
     }
 
@@ -44,20 +93,102 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
             if (task != null) {
                 val now = System.currentTimeMillis()
                 val updatedTask = if (task.isRunning) {
-                    val elapsed = now - (task.lastStartTime ?: now)
+                    val elapsedSinceStart = now - (task.lastStartTime ?: now)
+                    val newRemaining = (task.remainingTimeMillis - elapsedSinceStart).coerceAtLeast(0)
+                    stopTimerService()
                     task.copy(
                         isRunning = false,
-                        totalTimeMillis = task.totalTimeMillis + elapsed,
+                        remainingTimeMillis = newRemaining,
                         lastStartTime = null
                     )
                 } else {
-                    task.copy(
-                        isRunning = true,
-                        lastStartTime = now
-                    )
+                    if (task.remainingTimeMillis <= 0) {
+                        // Reset if it reached zero
+                        startTimerService(task.name)
+                        task.copy(
+                            isRunning = true,
+                            remainingTimeMillis = task.initialTimeMillis,
+                            lastStartTime = now
+                        )
+                    } else {
+                        startTimerService(task.name)
+                        task.copy(
+                            isRunning = true,
+                            lastStartTime = now
+                        )
+                    }
                 }
                 taskDao.insertTask(updatedTask)
             }
+        }
+    }
+
+    fun updateTaskProgress(taskId: UUID, remaining: Long) {
+        viewModelScope.launch {
+            val task = tasks.value.find { it.id == taskId }
+            if (task != null && task.isRunning) {
+                if (remaining <= 0) {
+                    toggleTask(taskId) // Stop it
+                } else {
+                    taskDao.insertTask(task.copy(remainingTimeMillis = remaining))
+                }
+            }
+        }
+    }
+
+    private fun startTimerService(taskName: String) {
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = "START"
+            putExtra("TASK_NAME", taskName)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getApplication<Application>().startForegroundService(intent)
+        } else {
+            getApplication<Application>().startService(intent)
+        }
+    }
+
+    private fun stopTimerService() {
+        val intent = Intent(getApplication(), TimerService::class.java).apply {
+            action = "STOP"
+        }
+        getApplication<Application>().stopService(intent)
+        triggerAlert()
+    }
+
+    private fun triggerAlert() {
+        viewModelScope.launch {
+            if (settingsManager.vibrationFlow.first()) {
+                vibrate()
+            }
+            if (settingsManager.soundEffectsFlow.first()) {
+                playSound()
+            }
+        }
+    }
+
+    private fun vibrate() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getApplication<Application>().getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            getApplication<Application>().getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(500)
+        }
+    }
+
+    private fun playSound() {
+        try {
+            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val r = RingtoneManager.getRingtone(getApplication(), notification)
+            r.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -94,6 +225,24 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsManager.setDarkMode(enabled)
+        }
+    }
+
+    fun setNotifications(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setNotifications(enabled)
+        }
+    }
+
+    fun setVibration(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setVibration(enabled)
+        }
+    }
+
+    fun setSound(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setSoundEffects(enabled)
         }
     }
 }

@@ -2,6 +2,8 @@ package com.example.myapplication
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -32,7 +34,7 @@ interface TodoDao {
     suspend fun deleteTodo(todo: Todo)
 }
 
-@Database(entities = [Task::class, Todo::class], version = 1)
+@Database(entities = [Task::class, Todo::class], version = 3)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun todoDao(): TodoDao
@@ -41,13 +43,22 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN characterImageName TEXT NOT NULL DEFAULT 'study_default'")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "app_database"
-                ).build()
+                )
+                .addMigrations(MIGRATION_2_3)
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }
