@@ -45,6 +45,9 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     val isSoundEnabled: StateFlow<Boolean> = settingsManager.soundEffectsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val ebookFontSize: StateFlow<Float> = settingsManager.ebookFontSizeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 18f)
+
     private val _characters = MutableStateFlow<List<FocusCharacter>>(emptyList())
     val characters = _characters.asStateFlow()
 
@@ -264,6 +267,12 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     fun setSound(enabled: Boolean) {
         viewModelScope.launch {
             settingsManager.setSoundEffects(enabled)
+        }
+    }
+
+    fun setEbookFontSize(size: Float) {
+        viewModelScope.launch {
+            settingsManager.setEbookFontSize(size)
         }
     }
 }

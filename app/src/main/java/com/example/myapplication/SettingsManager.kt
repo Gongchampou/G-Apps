@@ -3,6 +3,7 @@ package com.example.myapplication
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,6 +17,7 @@ class SettingsManager(context: Context) {
     val notificationsFlow: Flow<Boolean> = dataStore.data.map { it[NOTIFICATIONS] ?: true }
     val soundEffectsFlow: Flow<Boolean> = dataStore.data.map { it[SOUND_EFFECTS] ?: true }
     val vibrationFlow: Flow<Boolean> = dataStore.data.map { it[VIBRATION] ?: true }
+    val ebookFontSizeFlow: Flow<Float> = dataStore.data.map { it[EBOOK_FONT_SIZE] ?: 18f }
 
     suspend fun setDarkMode(enabled: Boolean) {
         dataStore.edit { it[DARK_MODE] = enabled }
@@ -33,10 +35,15 @@ class SettingsManager(context: Context) {
         dataStore.edit { it[VIBRATION] = enabled }
     }
 
+    suspend fun setEbookFontSize(size: Float) {
+        dataStore.edit { it[EBOOK_FONT_SIZE] = size }
+    }
+
     companion object {
         private val DARK_MODE = booleanPreferencesKey("dark_mode")
         private val NOTIFICATIONS = booleanPreferencesKey("notifications")
         private val SOUND_EFFECTS = booleanPreferencesKey("sound_effects")
         private val VIBRATION = booleanPreferencesKey("vibration")
+        private val EBOOK_FONT_SIZE = floatPreferencesKey("ebook_font_size")
     }
 }

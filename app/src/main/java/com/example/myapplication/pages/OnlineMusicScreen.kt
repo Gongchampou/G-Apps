@@ -29,71 +29,83 @@ import java.io.File
 import java.net.URL
 
 /**
- * OnlineMusicScreen: Provides a browseable library of music available for download.
- * Users can preview tracks, download them to local storage, or delete existing downloads.
+ * ONLINE MUSIC SCREEN
+ * This is your "Store" or "Download Center".
+ * You can browse all available songs and pick which ones to save to your phone.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineMusicScreen(onBack: () -> Unit) {
-    // INSTRUCTION: Local context for file and asset access
-    val context = LocalContext.current
-    // INSTRUCTION: Coroutine scope for handling asynchronous downloads
-    val scope = rememberCoroutineScope()
-    // INSTRUCTION: List of all tracks parsed from the online catalog
-    val tracks = remember { mutableStateListOf<Track>() }
-    // INSTRUCTION: Reactive maps to track which files are downloaded or currently downloading
-    val downloadedFiles = remember { mutableStateMapOf<String, Boolean>() }
-    val downloadingProgress = remember { mutableStateMapOf<String, Float>() }
-    // INSTRUCTION: State to manage the deletion confirmation dialog
+    
+    // --- APP TOOLS ---
+    val context = LocalContext.current // Helps find folders on your phone
+    val scope = rememberCoroutineScope() // Allows the app to download files "in the background"
+    
+    // --- DATA HOLDERS ---
+    val tracks = remember { mutableStateListOf<Track>() } // The list of songs you see on screen
+    val downloadedFiles = remember { mutableStateMapOf<String, Boolean>() } // Keeps track of what is already downloaded
+    val downloadingProgress = remember { mutableStateMapOf<String, Float>() } // Tracks the % of a download (0.0 to 1.0)
+    
+    // State to show the "Are you sure you want to delete?" popup
     var trackToDelete by remember { mutableStateOf<Track?>(null) }
 
-    // INSTRUCTION: Utility to generate a consistent filename based on track ID
+    // --- FILE HELPER ---
+    // Naming convention for saved files (e.g., "track_5.mp3")
     fun getFileName(track: Track): String = "track_${track.id}.mp3"
 
-    // INSTRUCTION: Check if a track's file exists and is valid (non-empty)
+    // Checks if the file is physically on your phone right now
     fun isDownloaded(track: Track): Boolean {
         val file = File(File(context.filesDir, "music"), getFileName(track))
         return file.exists() && file.length() > 0
     }
 
-    // INSTRUCTION: Refresh the entire downloaded status map to sync UI with storage
+    // Refresh the checkmarks on the screen
     fun refreshDownloadedStatus() {
         tracks.forEach { downloadedFiles[it.id.toString()] = isDownloaded(it) }
     }
 
-    // INSTRUCTION: Load the music list from assets on initial composition
+    // --- LOADING THE LIST ---
+    // Reads 'music_list.json' to see what songs are available to download
     LaunchedEffect(Unit) {
         try {
             val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
             val type = object : TypeToken<List<Track>>() {}.type
             val allTracks: List<Track> = Gson().fromJson(jsonString, type)
-            // INSTRUCTION: Only online tracks (those with a URL) are shown here
+            
+            // Only show songs that have a web link (URL)
             tracks.addAll(allTracks.filter { it.url.isNotBlank() })
             refreshDownloadedStatus()
         } catch (e: Exception) { e.printStackTrace() }
     }
 
     /**
-     * downloadTrack: Handles the network I/O to fetch the MP3 file.
-     * Includes progress tracking and automatic cleanup of partial files on error.
+     * downloadTrack: The "Worker" function that handles the actual download.
      */
     suspend fun downloadTrack(track: Track) {
+        // Start progress at 0%
         downloadingProgress[track.id.toString()] = 0f
+        
+        // Create the folder if it doesn't exist
         val musicDir = File(context.filesDir, "music").apply { if (!exists()) mkdirs() }
         val file = File(musicDir, getFileName(track))
 
+        // Run this part on the "IO" (Input/Output) thread so the screen doesn't freeze
         withContext(Dispatchers.IO) {
             try {
                 val connection = URL(track.url).openConnection()
                 val totalSize = connection.contentLength.toLong()
+                
                 connection.getInputStream().use { input ->
                     file.outputStream().use { output ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytesRead = 0L
+                        
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             output.write(buffer, 0, bytesRead)
                             totalBytesRead += bytesRead
+                            
+                            // Update the percentage circle on the screen
                             if (totalSize > 0) {
                                 withContext(Dispatchers.Main) {
                                     downloadingProgress[track.id.toString()] = totalBytesRead.toFloat() / totalSize
@@ -102,28 +114,35 @@ fun OnlineMusicScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+                // Once finished, show the checkmark icon
                 withContext(Dispatchers.Main) { downloadedFiles[track.id.toString()] = true }
             } catch (e: Exception) { 
                 e.printStackTrace()
-                if (file.exists()) file.delete() // INSTRUCTION: Clean up partial data if download fails
+                // If it fails, delete the "broken" file so it doesn't take up space
+                if (file.exists()) file.delete() 
             }
-            finally { withContext(Dispatchers.Main) { downloadingProgress.remove(track.id.toString()) } }
+            finally { 
+                // Remove the progress circle when done
+                withContext(Dispatchers.Main) { downloadingProgress.remove(track.id.toString()) } 
+            }
         }
     }
 
-    // INSTRUCTION: Confirmation Dialog to prevent accidental deletion of music data
+    // --- DELETE CONFIRMATION POPUP ---
     if (trackToDelete != null) {
         AlertDialog(
             onDismissRequest = { trackToDelete = null },
+            // CHANGE: Change the title of the popup here
             title = { Text("Delete Track?") },
-            text = { Text("This will permanently remove '${trackToDelete?.title}' from your device storage.") },
+            text = { Text("This will permanently remove '${trackToDelete?.title}' from your phone.") },
             confirmButton = {
                 TextButton(onClick = {
                     val file = File(File(context.filesDir, "music"), getFileName(trackToDelete!!))
-                    if (file.exists()) file.delete()
-                    refreshDownloadedStatus()
-                    trackToDelete = null
+                    if (file.exists()) file.delete() // Physically delete
+                    refreshDownloadedStatus() // Refresh UI icons
+                    trackToDelete = null // Close popup
                 }) {
+                    // CHANGE: Customize the delete button color
                     Text("Delete", color = Color.Red)
                 }
             },
@@ -133,53 +152,64 @@ fun OnlineMusicScreen(onBack: () -> Unit) {
         )
     }
 
+    // --- UI DESIGN SECTION ---
     Scaffold(
         topBar = {
             TopAppBar(
+                // CHANGE: Change the title of the screen here
                 title = { Text("Online Library") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
+                navigationIcon = { 
+                    IconButton(onClick = onBack) { 
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null) 
+                    } 
+                }
             )
         }
     ) { padding ->
+        // THE LIST: Scrolls up and down
         LazyColumn(modifier = Modifier.padding(padding).padding(16.dp)) {
             items(tracks) { track ->
+                // Check if this specific song is already downloaded or downloading
                 val isDownloaded = downloadedFiles[track.id.toString()] ?: false
                 val progress = downloadingProgress[track.id.toString()]
                 
                 ListItem(
-                    headlineContent = { Text(track.title) },
+                    headlineContent = { Text(track.title, fontWeight = FontWeight.Bold) },
                     supportingContent = { Text(track.artist) },
                     trailingContent = {
-                        // INSTRUCTION: Animated transition between progress bar and action icons
+                        // The Right-Hand Icon (Download Button or Progress Circle)
                         AnimatedContent(targetState = progress != null, label = "DownloadAnimation") { isDownloading ->
                             if (isDownloading) {
-                                // INSTRUCTION: Professional progress indicator with percentage readout
+                                // SHOW PROGRESS CIRCLE
                                 val animatedProgress by animateFloatAsState(targetValue = progress ?: 0f, label = "SmoothProgress")
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
                                     CircularProgressIndicator(progress = { animatedProgress }, modifier = Modifier.size(30.dp))
-                                    Text("${(animatedProgress * 100).toInt()}%", fontSize = 8.sp)
+                                    Text("${(animatedProgress * 100).toInt()}%", fontSize = 8.sp) // Show percentage
                                 }
                             } else {
-                                // INSTRUCTION: Toggle button: Downloads if missing, triggers delete if present
+                                // SHOW DOWNLOAD OR CHECKMARK ICON
                                 IconButton(onClick = { 
                                     if (isDownloaded) {
+                                        // If already downloaded, clicking it again asks to delete
                                         trackToDelete = track
                                     } else {
+                                        // If NOT downloaded, start the download worker
                                         scope.launch { downloadTrack(track) } 
                                     }
                                 }) {
                                     Icon(
-                                        if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                                        null,
+                                        // Icons change based on status
+                                        imageVector = if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
+                                        contentDescription = null,
+                                        // CHANGE: Change colors for Download vs Done status
                                         tint = if (isDownloaded) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
                         }
-                        // All the music i want to add can be add from the (music_list.json) file.
                     }
                 )
-                HorizontalDivider()
+                HorizontalDivider() // Line between items
             }
         }
     }

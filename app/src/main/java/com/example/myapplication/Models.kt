@@ -33,6 +33,16 @@ data class Track(
     val category: String = ""
 )
 
+data class Ebook(
+    val id: String,
+    val title: String,
+    val author: String,
+    val category: String = "Story", // Category: Prayer, Story, Song, etc.
+    val coverImage: String = "", // Asset path or URL
+    val description: String = "",
+    val content: String = "" // Full text for now, or chapters
+)
+
 data class RelaxTrick(
     val title: String,
     val icon: ImageVector,

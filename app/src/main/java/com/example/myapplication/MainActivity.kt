@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -63,7 +64,7 @@ sealed class Screen(val route: String, val icon: ImageVector, val label: String)
     object Todo : Screen("todo", Icons.Default.List, "Todo")
     object Timer : Screen("timer", Icons.Default.Timer, "Timer")
     object Music : Screen("music", Icons.Default.MusicNote, "Focus")
-    object Relax : Screen("relax", Icons.Default.SelfImprovement, "Relax")
+    object Relax : Screen("relax", Icons.AutoMirrored.Filled.MenuBook, "E-Book")
     object Settings : Screen("settings", Icons.Default.Settings, "Settings")
     object DownloadedMusic : Screen("downloaded_music", Icons.Default.Download, "Downloaded")
     object OnlineMusic : Screen("online_music", Icons.Default.CloudDownload, "Online")
@@ -86,7 +87,7 @@ fun MainScreen(viewModel: TaskViewModel) {
             composable(Screen.Todo.route) { TodoScreen(viewModel) }
             composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Music.route) { MusicScreen(navController) }
-            composable(Screen.Relax.route) { RelaxScreen() }
+            composable(Screen.Relax.route) { EbookScreen(viewModel) }
             composable(Screen.Settings.route) { SettingsScreen(viewModel, navController) }
             composable(Screen.DownloadedMusic.route) { 
                 DownloadedMusicScreen(onBack = { navController.popBackStack() }) 

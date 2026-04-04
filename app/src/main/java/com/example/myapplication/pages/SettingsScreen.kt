@@ -86,6 +86,22 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         SettingsToggle("Enable Notifications", isNotificationsEnabled) { viewModel.setNotifications(it) }
         SettingsToggle("Vibration on Stop", isVibrationEnabled) { viewModel.setVibration(it) }
         SettingsToggle("Sound on Stop", isSoundEnabled) { viewModel.setSound(it) }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // INSTRUCTION: E-book Font Size Control
+        Text("E-book Font Size", fontWeight = FontWeight.Bold)
+        val ebookFontSize by viewModel.ebookFontSize.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${ebookFontSize.toInt()} sp", modifier = Modifier.width(48.dp))
+            Slider(
+                value = ebookFontSize,
+                onValueChange = { viewModel.setEbookFontSize(it) },
+                valueRange = 12f..32f,
+                steps = 10,
+                modifier = Modifier.weight(1f)
+            )
+        }
         
         Spacer(modifier = Modifier.height(24.dp))
 

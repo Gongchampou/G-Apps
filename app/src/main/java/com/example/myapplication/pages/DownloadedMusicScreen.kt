@@ -25,38 +25,46 @@ import com.google.gson.reflect.TypeToken
 import java.io.File
 
 /**
- * DownloadedMusicScreen: Provides a dedicated view for managing only local music files.
- * Includes a background cleanup audit to purge any unrecognized or corrupted music data.
+ * DOWNLOADED MUSIC SCREEN
+ * This page is like a "File Manager" specifically for your music.
+ * It shows only the songs you've downloaded and lets you delete them to save space.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadedMusicScreen(onBack: () -> Unit) {
-    // INSTRUCTION: Access system context and manage track state
-    val context = LocalContext.current
+    
+    // --- APP TOOLS ---
+    val context = LocalContext.current // Helps the app find the hidden "music" folder on your phone
+    
+    // --- DATA HOLDER ---
+    // This list will hold the songs that are physically saved on your phone.
     var downloadedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
 
-    // INSTRUCTION: Initialize MediaController to stop playback if a song is deleted while playing
+    // --- MUSIC ENGINE CONNECTION ---
+    // We connect to the music player so that if you delete a song while it's playing, 
+    // the app can stop the music properly.
     val controllerFuture = remember {
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         MediaController.Builder(context, sessionToken).buildAsync()
     }
     var mediaController by remember { mutableStateOf<MediaController?>(null) }
 
-    // INSTRUCTION: Setup listener to receive the MediaController instance once ready
+    // Connects the screen to the background player "engine"
     LaunchedEffect(controllerFuture) {
         controllerFuture.addListener({
             mediaController = controllerFuture.get()
         }, MoreExecutors.directExecutor())
     }
 
-    // INSTRUCTION: Clean up MediaController future when the screen is dismissed
+    // Safely disconnects when you leave the page to save battery
     DisposableEffect(Unit) {
         onDispose {
             MediaController.releaseFuture(controllerFuture)
         }
     }
     
-    // INSTRUCTION: Utility to match track ID with the local .mp3 filename
+    // --- FILE HELPERS ---
+    // Logic to name the files correctly (e.g., "track_1.mp3")
     fun getFileName(track: Track): String {
         return if (track.url.isBlank()) {
             track.fileName
@@ -66,29 +74,29 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
     }
 
     /**
-     * loadDownloadedTracks: Audits the storage directory and refreshes the UI list.
-     * This function physically deletes files that are not in the valid JSON list or are empty.
+     * loadDownloadedTracks: This is the "Audit" function. 
+     * It checks your phone's storage and builds the list of what it finds.
      */
     fun loadDownloadedTracks() {
         try {
-            // INSTRUCTION: Parse the master music list from assets
+            // 1. Open the master list of all possible songs
             val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
             val type = object : TypeToken<List<Track>>() {}.type
             val allTracks: List<Track> = Gson().fromJson(jsonString, type)
+            
+            // 2. Find the folder where music is stored
             val musicDir = File(context.filesDir, "music")
             if (!musicDir.exists()) musicDir.mkdirs()
 
-            // INSTRUCTION: 1. Identify valid filenames based on the catalog JSON
+            // 3. CLEANUP: Delete any files that are broken (0 bytes) or shouldn't be there
             val validFileNames = allTracks.map { getFileName(it) }.toSet()
-            
-            // INSTRUCTION: 2. STORAGE CLEANUP: Purge any unknown or empty (0-byte) files immediately
             musicDir.listFiles()?.forEach { file ->
                 if (!validFileNames.contains(file.name) || file.length() <= 0L) {
                     file.delete()
                 }
             }
 
-            // INSTRUCTION: 3. Filter the list to only show valid downloaded tracks
+            // 4. UPDATE UI: Refresh the list you see on screen
             downloadedTracks = allTracks.filter { track ->
                 val file = File(musicDir, getFileName(track))
                 track.url.isNotBlank() && file.exists() && file.length() > 0
@@ -98,16 +106,19 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
         }
     }
 
-    // INSTRUCTION: Initial data load and audit when entering the screen
+    // Runs the "Audit" as soon as you open this page
     LaunchedEffect(Unit) {
         loadDownloadedTracks()
     }
 
+    // --- UI DESIGN SECTION ---
     Scaffold(
         topBar = {
             TopAppBar(
+                // CHANGE: Change the title of the page here
                 title = { Text("Downloaded Music") },
                 navigationIcon = {
+                    // Back arrow button to go back to Settings or Music page
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
@@ -116,39 +127,44 @@ fun DownloadedMusicScreen(onBack: () -> Unit) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
-            // INSTRUCTION: Handle empty state if no tracks have been downloaded
+            
+            // If you haven't downloaded anything yet, show this message
             if (downloadedTracks.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No downloaded music found.", color = Color.Gray)
                 }
             } else {
-                // INSTRUCTION: List of downloaded tracks with individual delete controls
+                // THE LIST: Shows all your saved songs
                 LazyColumn {
                     items(downloadedTracks) { track ->
+                        // One individual song row
                         ListItem(
                             headlineContent = { Text(track.title, fontWeight = FontWeight.Bold) },
                             supportingContent = { Text(track.artist) },
                             trailingContent = {
+                                // THE DELETE BUTTON (TRASH CAN)
                                 IconButton(onClick = {
                                     val controller = mediaController
-                                    // INSTRUCTION: Safety - Stop playback if we are deleting the current song
+                                    
+                                    // SAFETY: If you are deleting the song you are currently hearing, stop the music!
                                     if (controller != null && controller.currentMediaItem?.mediaId == track.id.toString()) {
                                         controller.stop()
                                     }
 
-                                    // INSTRUCTION: Physical file removal from storage
+                                    // DELETE: Physically erase the file from your phone's memory
                                     val file = File(File(context.filesDir, "music"), getFileName(track))
                                     if (file.exists()) {
                                         file.delete()
-                                        // INSTRUCTION: Immediately refresh the list to update UI and settings count
+                                        // Immediately refresh the list so the song disappears from the screen
                                         loadDownloadedTracks()
                                     }
                                 }) {
+                                    // CHANGE: Customize the trash can color here
                                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
                                 }
                             }
                         )
-                        HorizontalDivider()
+                        HorizontalDivider() // Draws a thin line between songs
                     }
                 }
             }

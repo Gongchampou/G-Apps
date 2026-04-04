@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -44,170 +45,177 @@ import androidx.navigation.NavController
 import com.example.myapplication.Screen
 
 /**
- * MusicScreen: The primary local playback screen for the Focus Music player.
- * Displays only downloaded or pre-installed music and manages audio playback state.
+ * MUSIC SCREEN
+ * This is the page where you see and play your downloaded music.
+ * Think of this as your "Library" or "Player" page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicScreen(navController: NavController) {
-    // INSTRUCTION: Setup UI contexts and reactive state holders
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val allTracks = remember { mutableStateListOf<Track>() }
-    var currentTrack by remember { mutableStateOf<Track?>(null) }
-    var isPlaying by remember { mutableStateOf(false) }
     
-    // INSTRUCTION: Category filter options for user navigation
+    // --- APP SMART TOOLS (Don't worry too much about these) ---
+    val context = LocalContext.current // Helps the app find files on your phone
+    val lifecycleOwner = LocalLifecycleOwner.current // Tells the app if the screen is open or hidden
+    
+    // --- DATA HOLDERS (These store information while the app is running) ---
+    // 'remember' makes the app keep this info even if the screen rotates or updates.
+    val allTracks = remember { mutableStateListOf<Track>() } // A list of every song the app knows about
+    var currentTrack by remember { mutableStateOf<Track?>(null) } // The song that is currently selected
+    var isPlaying by remember { mutableStateOf(false) } // Is the music playing right now? (True or False)
+    
+    // --- CATEGORIES (THE TABS) ---
+    // HOW TO CHANGE: You can add more words inside these quotes to add new tabs!
+    // Example: listOf("All", "Study", "Chill", "Rock", "Piano")
     val categories = listOf("All", "Study", "Sleep", "Relaxation", "Work", "Focus")
+    
+    // Tracks which tab you clicked on. Default is "All".
     var selectedCategory by remember { mutableStateOf("All") }
     
-    // INSTRUCTION: Refresh mechanism to detect when user returns from Online Library
+    // A simple trigger to refresh the list when you come back from the download page
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    // INSTRUCTION: Establish connection to the persistent PlaybackService
+    // --- MUSIC PLAYER ENGINE (Advanced Stuff) ---
+    // This connects this screen to the 'PlaybackService' which plays music in the background.
     val controllerFuture = remember {
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         MediaController.Builder(context, sessionToken).buildAsync()
     }
     var mediaController by remember { mutableStateOf<MediaController?>(null) }
 
-    // INSTRUCTION: Automatically trigger a refresh whenever the screen gains focus
+    // This part refreshes the song list automatically when you open this screen.
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                refreshTrigger++
-            }
+            if (event == Lifecycle.Event.ON_RESUME) refreshTrigger++
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // INSTRUCTION: Bind the media controller once the future resolves
+    // Connects the 'Play' button to the actual music engine
     LaunchedEffect(controllerFuture) {
         controllerFuture.addListener({
             mediaController = controllerFuture.get()
         }, MoreExecutors.directExecutor())
     }
 
-    // INSTRUCTION: Cleanup the media session connection on teardown
+    // Cleans up the connection when you leave the page to save battery
     DisposableEffect(Unit) {
-        onDispose {
-            MediaController.releaseFuture(controllerFuture)
-        }
+        onDispose { MediaController.releaseFuture(controllerFuture) }
     }
 
-    // INSTRUCTION: Sync the UI's 'isPlaying' and 'currentTrack' states with the MediaSession
+    // Syncs the UI: If the music starts playing, the Play button changes to Pause automatically.
     DisposableEffect(mediaController) {
         val controller = mediaController ?: return@DisposableEffect onDispose {}
         val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(isPlayingChanged: Boolean) {
-                isPlaying = isPlayingChanged
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                // CHANGE: We now track 'playWhenReady' instead of 'isPlaying' 
+                // to avoid the "work-not work" flickering during song skips.
+                isPlaying = playWhenReady
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                val mediaId = mediaItem?.mediaId
-                if (mediaId != null) {
+                mediaItem?.mediaId?.let { mediaId ->
                     val track = allTracks.find { it.id.toString() == mediaId }
-                    if (track != null && track != currentTrack) {
-                        currentTrack = track
-                    }
+                    if (track != null && track != currentTrack) currentTrack = track
                 }
             }
         }
         controller.addListener(listener)
-        isPlaying = controller.isPlaying
-        onDispose {
-            controller.removeListener(listener)
-        }
+        isPlaying = controller.playWhenReady
+        onDispose { controller.removeListener(listener) }
     }
 
-    // INSTRUCTION: Map track metadata to physical file storage paths
+    // --- FILE HELPERS ---
+    // Finds where the music file is stored on your phone.
     fun getFileName(track: Track): String {
-        return if (track.url.isBlank()) {
-            track.fileName
-        } else {
-            "track_${track.id}.mp3"
-        }
+        return if (track.url.isBlank()) track.fileName else "track_${track.id}.mp3"
     }
 
-    // INSTRUCTION: Verify track presence in assets or local downloads
+    // Checks if the music file actually exists (so we don't try to play a missing file).
     fun isDownloaded(track: Track): Boolean {
-        if (track.url.isBlank()) return true // Assets are always "available"
+        if (track.url.isBlank()) return true 
         val file = File(File(context.filesDir, "music"), getFileName(track))
         return file.exists() && file.length() > 0
     }
 
-    // INSTRUCTION: React to track changes by preparing the MediaController with the new URI
-    LaunchedEffect(currentTrack, mediaController) {
+    // Filter logic: Only shows songs that belong to the category you selected.
+    val visibleTracks = remember(allTracks.size, refreshTrigger) { allTracks.filter { isDownloaded(it) } }
+    val filteredTracks = remember(selectedCategory, visibleTracks) {
+        if (selectedCategory == "All") visibleTracks else visibleTracks.filter { it.category == selectedCategory }
+    }
+
+    // --- PLAYBACK LOGIC ---
+    
+    // 1. Sync the player's queue with all downloaded tracks (only when the list changes)
+    LaunchedEffect(mediaController, visibleTracks) {
         val controller = mediaController ?: return@LaunchedEffect
-        currentTrack?.let { track ->
-            try {
-                if (controller.currentMediaItem?.mediaId == track.id.toString()) {
-                    return@LaunchedEffect
-                }
-
-                val mediaItem = if (track.url.isNotBlank()) {
-                    val fileName = getFileName(track)
-                    val file = File(File(context.filesDir, "music"), fileName)
-                    val uri = if (file.exists() && file.length() > 0) {
-                        file.toURI().toString()
-                    } else {
-                        track.url
-                    }
-                    MediaItem.Builder()
-                        .setUri(uri)
-                        .setMediaId(track.id.toString())
-                        .build()
+        val currentMediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
+        val newMediaIds = visibleTracks.map { it.id.toString() }
+        
+        if (currentMediaIds != newMediaIds) {
+            val playlist = visibleTracks.map { t ->
+                val uri = if (t.url.isNotBlank()) {
+                    val f = File(File(context.filesDir, "music"), getFileName(t))
+                    if (f.exists() && f.length() > 0) f.toURI().toString() else t.url
                 } else {
-                    MediaItem.Builder()
-                        .setUri("asset:///music/${track.fileName}")
-                        .setMediaId(track.id.toString())
-                        .build()
+                    "asset:///music/${t.fileName}"
                 }
-
-                controller.setMediaItem(mediaItem)
-                controller.prepare()
-                if (isPlaying) {
-                    controller.play()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+                // CHANGE: Added metadata so the background notification shows the song title and artist
+                val metadata = MediaMetadata.Builder()
+                    .setTitle(t.title)
+                    .setArtist(t.artist)
+                    .setDisplayTitle(t.title)
+                    .build()
+                MediaItem.Builder()
+                    .setUri(uri)
+                    .setMediaId(t.id.toString())
+                    .setMediaMetadata(metadata)
+                    .build()
+            }
+            controller.setMediaItems(playlist)
+            controller.repeatMode = Player.REPEAT_MODE_ALL // Ensure cycle buttons are always visible
+            controller.prepare()
+            
+            // Keep the current song's place if it's still in the list
+            val index = visibleTracks.indexOfFirst { it.id.toString() == currentTrack?.id.toString() }
+            if (index != -1) {
+                controller.seekTo(index, controller.currentPosition)
             }
         }
     }
 
-    // INSTRUCTION: Propagate play/pause UI actions directly to the MediaController
-    LaunchedEffect(isPlaying, mediaController) {
+    // 2. Consolidated Control: Handles Track Changes AND Play/Pause state together
+    LaunchedEffect(currentTrack, isPlaying, mediaController) {
         val controller = mediaController ?: return@LaunchedEffect
+        
+        // A. Handle Track Change (Skip to the correct index)
+        currentTrack?.let { track ->
+            if (controller.currentMediaItem?.mediaId != track.id.toString()) {
+                val index = visibleTracks.indexOfFirst { it.id.toString() == track.id.toString() }
+                if (index != -1) {
+                    controller.seekTo(index, 0L)
+                    controller.prepare() // Ensure it's ready
+                }
+            }
+        }
+        
+        // B. Handle Play/Pause - Use a slight delay or force to ensure it sticks
         if (isPlaying) {
-            if (currentTrack == null && allTracks.isNotEmpty()) {
-                val downloaded = allTracks.filter { isDownloaded(it) }
-                if (downloaded.isNotEmpty()) currentTrack = downloaded[0]
-            }
-            if (controller.playbackState == Player.STATE_IDLE) {
-                controller.prepare()
-            }
             controller.play()
         } else {
             controller.pause()
         }
     }
 
-    /**
-     * Data Refresh Logic: Loads the JSON catalog and filters for available music.
-     * Ensures only existing files are displayed in the Focus list.
-     */
+    // --- LOADING THE LIST ---
+    // Reads your 'music_list.json' file and turns it into the list you see on screen.
     LaunchedEffect(refreshTrigger) {
         try {
             val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
-            val type = object : TypeToken<List<Track>>() {}.type
-            val loadedTracks: List<Track> = Gson().fromJson(jsonString, type)
+            val loadedTracks: List<Track> = Gson().fromJson(jsonString, object : TypeToken<List<Track>>() {}.type)
             allTracks.clear()
             allTracks.addAll(loadedTracks)
             
-            // INSTRUCTION: Fallback - if the current track was deleted, pick a new one
-            if (currentTrack != null && !isDownloaded(currentTrack!!)) {
-                currentTrack = allTracks.firstOrNull { isDownloaded(it) }
-            } else if (currentTrack == null) {
+            if (currentTrack == null || !isDownloaded(currentTrack!!)) {
                 currentTrack = allTracks.firstOrNull { isDownloaded(it) }
             }
         } catch (e: Exception) {
@@ -215,69 +223,86 @@ fun MusicScreen(navController: NavController) {
         }
     }
 
-    // INSTRUCTION: Filter logic - derived from the master list but limited to downloads
-    val visibleTracks = remember(allTracks.size, refreshTrigger) {
-        allTracks.filter { isDownloaded(it) }
-    }
-    
-    val filteredTracks = remember(selectedCategory, visibleTracks) {
-        if (selectedCategory == "All") visibleTracks else visibleTracks.filter { it.category == selectedCategory }
-    }
 
-    // INSTRUCTION: Main UI Layout
+
+    // -----------------------------------------------------------------------------------------
+    // --- UI DESIGN SECTION (This is where you change how things LOOK) ---
+    // -----------------------------------------------------------------------------------------
+    
     Column(modifier = Modifier.padding(24.dp)) {
+        
+        // --- THE HEADER (TOP ROW) ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // HOW TO CHANGE: Change the text inside " " to rename your screen.
             Text("Focus Music", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            
+            // This is the little Download icon button.
             IconButton(onClick = { navController.navigate(Screen.OnlineMusic.route) }) {
                 Icon(Icons.Default.Download, "Online Library")
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp)) // Adds a small gap
         
-        // INSTRUCTION: Persistent Playback Control Card
+        // --- THE NOW PLAYING CARD (THE PURPLE BOX) ---
         Card(
-            modifier = Modifier.fillMaxWidth().height(150.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6))
+            // HOW TO CHANGE SIZE: Change '150.dp' to make the box taller or shorter.
+            modifier = Modifier.fillMaxWidth().height(150.dp), 
+            
+            // HOW TO CHANGE CORNERS: Change '20.dp' to make corners more or less round.
+            shape = RoundedCornerShape(20.dp), 
+            
+            // HOW TO CHANGE COLOR: Change '0xFF5856D6' to another hex color code.
+            // (e.g., 0xFF000000 is Black, 0xFFFF0000 is Red)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF5856D6)) 
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Displays the title of the song.
                     Text("Now Playing: ${currentTrack?.title ?: "Select a track"}", color = Color.White, fontWeight = FontWeight.Bold)
+                    
+                    // --- PLAYER CONTROLS (Skip, Play/Pause, Next) ---
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Skip Previous functionality
-                        IconButton(onClick = {
-                            val currentIndex = visibleTracks.indexOf(currentTrack)
-                            if (currentIndex > 0) {
-                                currentTrack = visibleTracks[currentIndex - 1]
-                            } else if (visibleTracks.isNotEmpty()) {
-                                currentTrack = visibleTracks.last()
-                            }
-                        }) { Icon(Icons.Default.SkipPrevious, "", tint = Color.White) }
                         
-                        // Play/Pause central button
+                        // SKIP PREVIOUS BUTTON (Cycle Style)
+                        IconButton(onClick = {
+                            val list = if (filteredTracks.isNotEmpty()) filteredTracks else visibleTracks
+                            if (list.isNotEmpty()) {
+                                val currentId = currentTrack?.id
+                                val idx = list.indexOfFirst { it.id == currentId }
+                                // If at start or not found, go to last
+                                val prevIdx = if (idx <= 0) list.size - 1 else idx - 1
+                                currentTrack = list[prevIdx]
+                                isPlaying = true
+                            }
+                        }) { Icon(Icons.Default.SkipPrevious, null, tint = Color.White) }
+                        
+                        // PLAY / PAUSE BUTTON
                         IconButton(onClick = { isPlaying = !isPlaying }, modifier = Modifier.size(64.dp)) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, 
-                                "", 
+                                null, 
                                 tint = Color.White, 
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(48.dp) 
                             ) 
                         }
                         
-                        // Skip Next functionality
+                        // SKIP NEXT BUTTON (Cycle Style)
                         IconButton(onClick = {
-                            val currentIndex = visibleTracks.indexOf(currentTrack)
-                            if (currentIndex < visibleTracks.size - 1) {
-                                currentTrack = visibleTracks[currentIndex + 1]
-                            } else if (visibleTracks.isNotEmpty()) {
-                                currentTrack = visibleTracks.first()
+                            val list = if (filteredTracks.isNotEmpty()) filteredTracks else visibleTracks
+                            if (list.isNotEmpty()) {
+                                val currentId = currentTrack?.id
+                                val idx = list.indexOfFirst { it.id == currentId }
+                                // If at end or not found, go to first
+                                val nextIdx = if (idx == -1 || idx >= list.size - 1) 0 else idx + 1
+                                currentTrack = list[nextIdx]
+                                isPlaying = true
                             }
-                        }) { Icon(Icons.Default.SkipNext, "", tint = Color.White) }
+                        }) { Icon(Icons.Default.SkipNext, null, tint = Color.White) }
                     }
                 }
             }
@@ -285,12 +310,14 @@ fun MusicScreen(navController: NavController) {
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // INSTRUCTION: Category Filter Row for quick navigation
+        // --- CATEGORY ROW (THE FILTER TABS) ---
+        // 'LazyRow' means it scrolls left and right.
         androidx.compose.foundation.lazy.LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(categories) { category ->
+                // Individual Tab Chip
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { selectedCategory = category },
@@ -301,8 +328,9 @@ fun MusicScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
         
-        // INSTRUCTION: Handle empty local library - direct user to online source
+        // --- SONG LIST AREA ---
         if (visibleTracks.isEmpty()) {
+            // This shows if you have NO music downloaded.
             Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("No local tracks found.", color = Color.Gray)
@@ -312,25 +340,19 @@ fun MusicScreen(navController: NavController) {
                 }
             }
         } else {
-            // INSTRUCTION: List of available tracks to play
+            // 'LazyColumn' is a list that scrolls up and down.
             LazyColumn {
                 items(filteredTracks) { track ->
+                    // Individual Music Item in the list
                     ListItem(
-                        headlineContent = { Text(track.title) },
-                        supportingContent = { Text(track.artist) },
+                        headlineContent = { Text(track.title) }, // Main title
+                        supportingContent = { Text(track.artist) }, // Small artist name
                         trailingContent = { 
+                            // Small play button on the right side of the list
                             IconButton(onClick = {
-                                if (currentTrack == track) {
-                                    isPlaying = !isPlaying
-                                } else {
-                                    currentTrack = track
-                                    isPlaying = true
-                                }
+                                if (currentTrack == track) isPlaying = !isPlaying else { currentTrack = track; isPlaying = true }
                             }) {
-                                Icon(
-                                    if (currentTrack == track && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, 
-                                    null
-                                )
+                                Icon(if (currentTrack == track && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
                             }
                         }
                     )
