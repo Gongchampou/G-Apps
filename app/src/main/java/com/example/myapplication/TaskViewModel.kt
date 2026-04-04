@@ -55,6 +55,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadCharacters() {
         viewModelScope.launch {
             try {
+                // INSTRUCTION: characters.json is now in the root assets folder
                 val jsonString = getApplication<Application>().assets.open("characters.json")
                     .bufferedReader().use { it.readText() }
                 val listType = object : TypeToken<List<FocusCharacter>>() {}.type

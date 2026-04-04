@@ -24,17 +24,26 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
 
+/**
+ * SettingsScreen: Manages application-wide preferences and storage overview.
+ * Users can toggle theme modes, control notifications, and access the storage management view.
+ */
 @Composable
 fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
+    // INSTRUCTION: Observes ViewModel state for persistent user preferences
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val isNotificationsEnabled by viewModel.isNotificationsEnabled.collectAsState()
     val isVibrationEnabled by viewModel.isVibrationEnabled.collectAsState()
     val isSoundEnabled by viewModel.isSoundEnabled.collectAsState()
+    
+    // INSTRUCTION: Tool for opening external links (GitHub)
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     
+    // INSTRUCTION: Reactive count of successfully downloaded tracks
     var downloadCount by remember { mutableIntStateOf(0) }
     
+    // INSTRUCTION: Utility to match the track's local storage identity
     fun getFileName(track: Track): String {
         return if (track.url.isBlank()) {
             track.fileName
@@ -43,20 +52,27 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         }
     }
 
+    /**
+     * updateDownloadCount: Verifies storage state and updates the local count.
+     * Only counts tracks that physically exist and are not corrupted (empty).
+     */
     fun updateDownloadCount() {
         try {
-            val jsonString = context.assets.open("music/music_list.json").bufferedReader().use { it.readText() }
+            val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
             val type = object : TypeToken<List<Track>>() {}.type
             val allTracks: List<Track> = Gson().fromJson(jsonString, type)
             val musicDir = File(context.filesDir, "music")
+            // INSTRUCTION: Filter logic matches DownloadedMusicScreen for total consistency
             downloadCount = allTracks.count { track ->
-                track.url.isNotBlank() && File(musicDir, getFileName(track)).exists()
+                val file = File(musicDir, getFileName(track))
+                track.url.isNotBlank() && file.exists() && file.length() > 0
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
+    // INSTRUCTION: Recalculate count whenever this screen is displayed
     LaunchedEffect(Unit) {
         updateDownloadCount()
     }
@@ -65,6 +81,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         Text("Settings", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         
+        // INSTRUCTION: Toggle controls for basic app settings
         SettingsToggle("Dark Mode", isDarkMode) { viewModel.setDarkMode(it) }
         SettingsToggle("Enable Notifications", isNotificationsEnabled) { viewModel.setNotifications(it) }
         SettingsToggle("Vibration on Stop", isVibrationEnabled) { viewModel.setVibration(it) }
@@ -72,7 +89,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Downloaded Music Entry
+        // INSTRUCTION: Entry point to Downloaded Music management
         Surface(
             onClick = { navController.navigate(Screen.DownloadedMusic.route) },
             shape = RoundedCornerShape(12.dp),
@@ -87,7 +104,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Downloaded Music", fontWeight = FontWeight.Bold)
-                    Text("$downloadCount tracks downloaded", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("$downloadCount tracks saved", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
             }
@@ -95,6 +112,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // INSTRUCTION: App Information and Branding section
         Text("Open Source Focus App v1.0", color = Color.Gray, fontWeight = FontWeight.Bold)
         Text("Completely free and private. No accounts needed.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
 
@@ -103,6 +121,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         Text("This app is Created by Gongchampou kamei.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(40.dp))
+        // INSTRUCTION: External link to view source code
         Button(
             onClick = { 
                 uriHandler.openUri("https://github.com/Gongchampou/an-focus.git")
@@ -115,6 +134,9 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     }
 }
 
+/**
+ * SettingsToggle: A reusable UI component for labeled switches.
+ */
 @Composable
 fun SettingsToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
