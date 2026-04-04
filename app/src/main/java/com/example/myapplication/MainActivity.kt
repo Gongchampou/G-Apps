@@ -31,15 +31,23 @@ import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.pages.*
 import com.example.myapplication.ui.theme.MyApplicationTheme
 
+/**
+ * MAIN ACTIVITY
+ * This is the "brain" of your app. It's the first thing that runs when you open the app.
+ * It sets up the theme (Dark/Light mode) and decides which screen to show first.
+ */
 class MainActivity : ComponentActivity() {
     private val viewModel: TaskViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // This makes the app go full screen (behind the status bar)
         setContent {
+            // TIP: This line connects your app to the Dark Mode setting in your ViewModel.
             val isDarkMode by viewModel.isDarkMode.collectAsState()
+            
             MyApplicationTheme(darkTheme = isDarkMode) {
+                // This part handles "Backgrounding" - it saves your timer if you close the app.
                 val lifecycleOwner = LocalLifecycleOwner.current
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
@@ -54,41 +62,61 @@ class MainActivity : ComponentActivity() {
                         lifecycleOwner.lifecycle.removeObserver(observer)
                     }
                 }
+                
+                // Starts the main UI container
                 MainScreen(viewModel)
             }
         }
     }
 }
 
+/**
+ * THE SCREEN LIST
+ * This is where you define every page in your app.
+ * CHANGE: To change an icon, replace 'Icons.Default.List' with another one like 'Icons.Default.Home'.
+ * CHANGE: To change the name shown in the menu, edit the text in "quotes".
+ */
 sealed class Screen(val route: String, val icon: ImageVector, val label: String) {
     object Todo : Screen("todo", Icons.Default.List, "Todo")
     object Timer : Screen("timer", Icons.Default.Timer, "Timer")
     object Music : Screen("music", Icons.Default.MusicNote, "Focus")
     object Relax : Screen("relax", Icons.AutoMirrored.Filled.MenuBook, "E-Book")
     object Settings : Screen("settings", Icons.Default.Settings, "Settings")
+    
+    // These screens are hidden from the bottom bar but still part of the app logic
     object DownloadedMusic : Screen("downloaded_music", Icons.Default.Download, "Downloaded")
     object OnlineMusic : Screen("online_music", Icons.Default.CloudDownload, "Online")
 }
 
+/**
+ * MAIN SCREEN CONTAINER
+ * This holds the Bottom Bar and the actual page content.
+ */
 @Composable
 fun MainScreen(viewModel: TaskViewModel) {
     val navController = rememberNavController()
     
     Scaffold(
         bottomBar = {
+            // TIP: This adds the navigation menu at the very bottom of the screen.
             BottomNavigationBar(navController)
         }
     ) { innerPadding ->
+        // NAV HOST: This is like a "Projector". It swaps screens based on what you click.
         NavHost(
             navController = navController,
-            startDestination = Screen.Timer.route,
+            // CHANGE: Change 'Screen.Todo.route' to 'Screen.Timer.route' to start on the Timer instead.
+            startDestination = Screen.Todo.route, 
             modifier = Modifier.padding(innerPadding)
         ) {
+            // Each 'composable' block links a "Route" to a "Screen File"
             composable(Screen.Todo.route) { TodoScreen(viewModel) }
             composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Music.route) { MusicScreen(navController) }
             composable(Screen.Relax.route) { EbookScreen(viewModel) }
             composable(Screen.Settings.route) { SettingsScreen(viewModel, navController) }
+            
+            // Sub-pages for the Music screen
             composable(Screen.DownloadedMusic.route) { 
                 DownloadedMusicScreen(onBack = { navController.popBackStack() }) 
             }
@@ -99,14 +127,22 @@ fun MainScreen(viewModel: TaskViewModel) {
     }
 }
 
+/**
+ * BOTTOM NAVIGATION BAR
+ * This is the UI for the menu buttons at the bottom.
+ */
 @Composable
 fun BottomNavigationBar(navController: NavHostController) {
-    val items = listOf(Screen.Timer, Screen.Todo, Screen.Music, Screen.Relax, Screen.Settings)
+    // CHANGE: To reorder the buttons, simply move the items in this list!
+    // Example: listOf(Screen.Music, Screen.Todo, Screen.Timer...)
+    val items = listOf(Screen.Todo, Screen.Timer, Screen.Music, Screen.Relax, Screen.Settings)
+    
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar(
-        tonalElevation = 8.dp,
+        tonalElevation = 8.dp, // Adds a slight shadow to make it pop
+        // CHANGE: Adjust '20.dp' to make the top corners more or less rounded.
         modifier = Modifier.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
     ) {
         items.forEach { screen ->
@@ -115,14 +151,16 @@ fun BottomNavigationBar(navController: NavHostController) {
                 label = { Text(screen.label) },
                 selected = currentRoute == screen.route,
                 onClick = {
+                    // Logic to jump to the clicked screen
                     navController.navigate(screen.route) {
                         popUpTo(navController.graph.startDestinationId) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
                 },
+                // CHANGE: Change the color codes here to match your brand!
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFF007AFF),
+                    selectedIconColor = Color(0xFF007AFF), // iOS Blue
                     selectedTextColor = Color(0xFF007AFF)
                 )
             )
