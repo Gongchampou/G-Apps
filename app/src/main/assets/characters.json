@@ -14,5 +14,13 @@
   {
     "name": "Fat Boys" ,
     "imagePath": "avatar-4.png"
+  },
+  {
+    "name": "good Boys" ,
+    "imagePath": "my-avatar.png"
+  },
+  {
+    "name": "Fat Boys" ,
+    "imagePath": "source.gif"
   }
 ]

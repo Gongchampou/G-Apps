@@ -42,8 +42,8 @@ class MainActivity : ComponentActivity() {
 }
 
 sealed class Screen(val route: String, val icon: ImageVector, val label: String) {
-    object Timer : Screen("timer", Icons.Default.Timer, "Timer")
     object Todo : Screen("todo", Icons.Default.List, "Todo")
+    object Timer : Screen("timer", Icons.Default.Timer, "Timer")
     object Music : Screen("music", Icons.Default.MusicNote, "Focus")
     object Relax : Screen("relax", Icons.Default.SelfImprovement, "Relax")
     object Settings : Screen("settings", Icons.Default.Settings, "Settings")
@@ -63,8 +63,8 @@ fun MainScreen(viewModel: TaskViewModel) {
             startDestination = Screen.Timer.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Todo.route) { TodoScreen(viewModel) }
+            composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Music.route) { MusicScreen() }
             composable(Screen.Relax.route) { RelaxScreen() }
             composable(Screen.Settings.route) { SettingsScreen(viewModel) }

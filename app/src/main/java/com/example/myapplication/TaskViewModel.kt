@@ -68,8 +68,8 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Task logic
-    fun addTask(name: String, minutes: Int = 25, characterImageName: String = "study_default") {
-        val millis = minutes * 60 * 1000L
+    fun addTask(name: String, hours: Int = 0, minutes: Int = 25, seconds: Int = 0, characterImageName: String = "study_default") {
+        val millis = (hours * 3600 + minutes * 60 + seconds) * 1000L
         viewModelScope.launch {
             taskDao.insertTask(Task(
                 name = name, 
@@ -167,7 +167,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun vibrate() {
+    fun vibrate() {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getApplication<Application>().getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vibratorManager.defaultVibrator
@@ -182,7 +182,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun playSound() {
+    fun playSound() {
         try {
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val r = RingtoneManager.getRingtone(getApplication(), notification)
