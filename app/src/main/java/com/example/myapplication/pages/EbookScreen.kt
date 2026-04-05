@@ -38,14 +38,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.text.HtmlCompat
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import com.example.myapplication.Ebook
 import com.example.myapplication.R
+import androidx.compose.ui.graphics.toArgb
+import android.graphics.text.LineBreaker
+import android.os.Build
+import android.widget.TextView
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -260,80 +266,110 @@ fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
     ) {
         Scaffold(
             topBar = {
-                // Header layout for Back and Read Mode buttons
-                Box(
+                // Header layout for Title, Back and Read Mode buttons (Fixed at top)
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth() // Header width
-                        .windowInsetsPadding(WindowInsets.statusBars) // Space for status bar icons
-                        .padding(horizontal = 8.dp) // Side padding for buttons
+                        .fillMaxWidth()
+                        .padding(top = 1.dp) // 1px (approx) top padding
+                        .windowInsetsPadding(WindowInsets.statusBars)
                 ) {
-                    // The button used to close the reader
-                    IconButton(
-                        onClick = onBack, 
-                        modifier = Modifier.size(38.dp).align(Alignment.CenterStart) // Button area size
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Standard back arrow
-                            contentDescription = "Close Reader", 
-                            modifier = Modifier.size(30.dp), // CHANGE: Adjust back button icon size
-                            tint = textColor // Uses dynamic color so it remains visible in all modes
+                        // The button used to close the reader
+                        IconButton(
+                            onClick = onBack, 
+                            modifier = Modifier.size(38.dp).align(Alignment.CenterStart)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Close Reader", 
+                                modifier = Modifier.size(30.dp),
+                                tint = textColor
+                            )
+                        }
+
+                        // FIXED TITLE - Now scales according to the selected font size
+                        Text(
+                            text = book.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = (fontSize * 1.2f).sp // Scales with reading font (20% larger)
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = textColor,
+                            modifier = Modifier.align(Alignment.Center).padding(horizontal = 48.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+
+                        // The button used to toggle Eye-Care mode
+                        IconButton(
+                            onClick = { isReadingMode = !isReadingMode },
+                            modifier = Modifier.size(38.dp).align(Alignment.CenterEnd)
+                        ) {
+                            Icon(
+                                imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Toggle Reading Mode",
+                                modifier = Modifier.size(30.dp),
+                                tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
 
-                    // The button used to toggle Eye-Care (Sepia) mode
-                    IconButton(
-                        onClick = { isReadingMode = !isReadingMode }, // Swaps state on click
-                        modifier = Modifier.size(38.dp).align(Alignment.CenterEnd) // Positioned at top right
-                    ) {
-                        Icon(
-                            imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility, // Eye icon
-                            contentDescription = "Toggle Reading Mode",
-                            modifier = Modifier.size(30.dp), // CHANGE: Adjust eye icon size
-                            tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary // CHANGE: Icon color
-                        )
-                    }
+                    // FIXED AUTHOR
+                    Text(
+                        text = " ${book.author}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = authorColor,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                    )
+                    
+                    HorizontalDivider(color = authorColor.copy(alpha = 0.3f))
                 }
             },
-            containerColor = backgroundColor // Changes the background of the entire reader screen
+            containerColor = backgroundColor
         ) { padding ->
             // Container for the book text, makes it scrollable
             Column(
                 modifier = Modifier
-                    .fillMaxSize() // Fills screen
-                    .padding(padding) // Avoids overlapping top bar
-                    .padding(horizontal = 24.dp, vertical = 4.dp) // CHANGE: Adjust side margins for reading
-                    .verticalScroll(rememberScrollState()) // Enables up/down scrolling
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Displays the Book Title at the top of the page
-                Text(
-                    text = book.title, 
-                    style = MaterialTheme.typography.headlineMedium, // Large font style
-                    fontWeight = FontWeight.Bold, // Bold text
-                    textAlign = TextAlign.Center, // Centered title
-                    color = textColor, // Dynamic color based on Read Mode
-                    modifier = Modifier.fillMaxWidth() // Center within width
-                )
-                // Displays the Author name
-                Text(
-                    text = "by ${book.author}", 
-                    style = MaterialTheme.typography.bodyLarge, 
-                    color = authorColor, // Dynamic color (brownish in sepia mode)
-                    textAlign = TextAlign.Center, // Centered
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp) // Space below author
-                )
-                
-                // Visual horizontal line separator
-                HorizontalDivider(color = authorColor.copy(alpha = 0.3f)) 
-                Spacer(modifier = Modifier.height(24.dp)) // Vertical gap after line
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Main reading content text
-                Text(
-                    // Converts HTML tags (like <b>) and replaces line breaks with HTML breaks
-                    text = AnnotatedString.fromHtml(book.content.replace("\n", "<br>")), 
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp), // CHANGE: Font size now controlled by settings
-                    lineHeight = (fontSize * 1.5).sp, // CHANGE: Proportional line height for readability
-                    textAlign = TextAlign.Justify, // Aligns text to both sides for a clean look
-                    color = textColor // Dynamic color for comfortable reading
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { context ->
+                        TextView(context).apply {
+                            // Basic setup for readability
+                            textSize = fontSize
+                            setTextColor(textColor.toArgb())
+                            setTextIsSelectable(true) // Allows users to copy text
+                            
+                            // Justify the text for a professional book look (Android 10.0+)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                justificationMode = LineBreaker.JUSTIFICATION_MODE_INTER_WORD
+                            }
+                        }
+                    },
+                    update = { textView ->
+                        // These update whenever fontSize or textColor change
+                        textView.textSize = fontSize
+                        textView.setTextColor(textColor.toArgb())
+                        
+                        // Parse and set the HTML content
+                        textView.text = HtmlCompat.fromHtml(
+                            book.content.replace("\n", "<br>"),
+                            HtmlCompat.FROM_HTML_MODE_LEGACY
+                        )
+                    }
                 )
                 
                 // Extra space at the very bottom so the last lines aren't cut off by screen edges

@@ -102,11 +102,10 @@ fun MusicScreen(navController: NavController) {
     }
     var mediaController by remember { mutableStateOf<MediaController?>(null) }
 
-    // This part refreshes the song list automatically when you open this screen.
+    // This part handles the lifecycle. We've removed the auto-refresh on resume 
+    // to keep the UI consistent and prevent flickering.
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) refreshTrigger++
-        }
+        val observer = LifecycleEventObserver { _, _ -> }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -127,20 +126,22 @@ fun MusicScreen(navController: NavController) {
     DisposableEffect(mediaController) {
         val controller = mediaController ?: return@DisposableEffect onDispose {}
         val listener = object : Player.Listener {
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                // CHANGE: We now track 'playWhenReady' instead of 'isPlaying' 
-                // to avoid the "work-not work" flickering during song skips.
-                isPlaying = playWhenReady
-            }
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                mediaItem?.mediaId?.let { mediaId ->
-                    val track = allTracks.find { it.id.toString() == mediaId }
-                    if (track != null && track != currentTrack) currentTrack = track
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.containsAny(Player.EVENT_PLAY_WHEN_READY_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                    isPlaying = player.playWhenReady
+                    val mediaId = player.currentMediaItem?.mediaId
+                    if (mediaId != null) {
+                        val track = allTracks.find { it.id.toString() == mediaId }
+                        if (track != null) currentTrack = track
+                    }
                 }
             }
         }
         controller.addListener(listener)
         isPlaying = controller.playWhenReady
+        controller.currentMediaItem?.mediaId?.let { id ->
+            currentTrack = allTracks.find { it.id.toString() == id }
+        }
         onDispose { controller.removeListener(listener) }
     }
 
@@ -166,7 +167,9 @@ fun MusicScreen(navController: NavController) {
     // --- PLAYBACK LOGIC ---
     
     // 1. Sync the player's queue with all downloaded tracks (only when the list changes)
-    LaunchedEffect(mediaController, visibleTracks) {
+    // We use the IDs of the tracks to detect actual changes and avoid unnecessary refreshes.
+    val trackIds = remember(visibleTracks) { visibleTracks.map { it.id } }
+    LaunchedEffect(mediaController, trackIds) {
         val controller = mediaController ?: return@LaunchedEffect
         val currentMediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
         val newMediaIds = visibleTracks.map { it.id.toString() }
@@ -179,7 +182,6 @@ fun MusicScreen(navController: NavController) {
                 } else {
                     "asset:///music/${t.fileName}"
                 }
-                // CHANGE: Added metadata so the background notification shows the song title and artist
                 val metadata = MediaMetadata.Builder()
                     .setTitle(t.title)
                     .setArtist(t.artist)
@@ -191,55 +193,54 @@ fun MusicScreen(navController: NavController) {
                     .setMediaMetadata(metadata)
                     .build()
             }
-            controller.setMediaItems(playlist)
-            controller.repeatMode = Player.REPEAT_MODE_ALL // Ensure cycle buttons are always visible
-            controller.prepare()
             
-            // Keep the current song's place if it's still in the list
-            val index = visibleTracks.indexOfFirst { it.id.toString() == currentTrack?.id.toString() }
-            if (index != -1) {
-                controller.seekTo(index, controller.currentPosition)
+            // SMART SYNC: Update the list but stay on the same song at the same second
+            val currentId = controller.currentMediaItem?.mediaId
+            val currentIndex = visibleTracks.indexOfFirst { it.id.toString() == currentId }
+            
+            if (currentIndex != -1) {
+                controller.setMediaItems(playlist, currentIndex, controller.currentPosition)
+            } else {
+                controller.setMediaItems(playlist)
             }
+            
+            controller.repeatMode = Player.REPEAT_MODE_ALL
+            controller.prepare()
         }
     }
 
-    // 2. Consolidated Control: Handles Track Changes AND Play/Pause state together
-    LaunchedEffect(currentTrack, isPlaying, mediaController) {
-        val controller = mediaController ?: return@LaunchedEffect
-        
-        // A. Handle Track Change (Skip to the correct index)
-        currentTrack?.let { track ->
-            if (controller.currentMediaItem?.mediaId != track.id.toString()) {
-                val index = visibleTracks.indexOfFirst { it.id.toString() == track.id.toString() }
-                if (index != -1) {
-                    controller.seekTo(index, 0L)
-                    controller.prepare() // Ensure it's ready
-                }
-            }
-        }
-        
-        // B. Handle Play/Pause - Use a slight delay or force to ensure it sticks
-        if (isPlaying) {
-            controller.play()
-        } else {
-            controller.pause()
-        }
-    }
+    // REMOVED the old "Consolidated Control" LaunchedEffect that was causing resets.
+    // Playback is now handled directly by button clicks for better stability.
 
     // --- LOADING THE LIST ---
-    // Reads your 'music_list.json' file and turns it into the list you see on screen.
-    LaunchedEffect(refreshTrigger) {
+    // Reads your 'music_list.json' file once when the screen starts.
+    LaunchedEffect(Unit) {
+        if (allTracks.isNotEmpty()) return@LaunchedEffect
         try {
             val jsonString = context.assets.open("music_list.json").bufferedReader().use { it.readText() }
             val loadedTracks: List<Track> = Gson().fromJson(jsonString, object : TypeToken<List<Track>>() {}.type)
-            allTracks.clear()
             allTracks.addAll(loadedTracks)
-            
-            if (currentTrack == null || !isDownloaded(currentTrack!!)) {
-                currentTrack = allTracks.firstOrNull { isDownloaded(it) }
-            }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    // Sync currentTrack with what's actually playing in the mediaController
+    // This runs as soon as the controller is ready or the tracks are loaded
+    LaunchedEffect(mediaController, allTracks.size) {
+        val controller = mediaController ?: return@LaunchedEffect
+        if (allTracks.isEmpty()) return@LaunchedEffect
+
+        val playingMediaId = controller.currentMediaItem?.mediaId
+        if (playingMediaId != null) {
+            val playingTrack = allTracks.find { it.id.toString() == playingMediaId }
+            if (playingTrack != null) {
+                currentTrack = playingTrack
+                isPlaying = controller.playWhenReady
+            }
+        } else if (currentTrack == null) {
+            // Only set a default if nothing is already playing
+            currentTrack = allTracks.firstOrNull { isDownloaded(it) }
         }
     }
 
@@ -303,21 +304,16 @@ fun MusicScreen(navController: NavController) {
                     // --- PLAYER CONTROLS (Skip, Play/Pause, Next) ---
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         
-                        // SKIP PREVIOUS BUTTON (Cycle Style)
+                        // SKIP PREVIOUS BUTTON
                         IconButton(onClick = {
-                            val list = if (filteredTracks.isNotEmpty()) filteredTracks else visibleTracks
-                            if (list.isNotEmpty()) {
-                                val currentId = currentTrack?.id
-                                val idx = list.indexOfFirst { it.id == currentId }
-                                // If at start or not found, go to last
-                                val prevIdx = if (idx <= 0) list.size - 1 else idx - 1
-                                currentTrack = list[prevIdx]
-                                isPlaying = true
-                            }
+                            mediaController?.seekToPreviousMediaItem()
                         }) { Icon(Icons.Default.SkipPrevious, null, tint = Color.White) }
                         
                         // PLAY / PAUSE BUTTON
-                        IconButton(onClick = { isPlaying = !isPlaying }, modifier = Modifier.size(64.dp)) {
+                        IconButton(onClick = { 
+                            val controller = mediaController ?: return@IconButton
+                            if (controller.playWhenReady) controller.pause() else controller.play()
+                        }, modifier = Modifier.size(64.dp)) {
                             Icon(
                                 if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, 
                                 null, 
@@ -326,17 +322,9 @@ fun MusicScreen(navController: NavController) {
                             ) 
                         }
                         
-                        // SKIP NEXT BUTTON (Cycle Style)
+                        // SKIP NEXT BUTTON
                         IconButton(onClick = {
-                            val list = if (filteredTracks.isNotEmpty()) filteredTracks else visibleTracks
-                            if (list.isNotEmpty()) {
-                                val currentId = currentTrack?.id
-                                val idx = list.indexOfFirst { it.id == currentId }
-                                // If at end or not found, go to first
-                                val nextIdx = if (idx == -1 || idx >= list.size - 1) 0 else idx + 1
-                                currentTrack = list[nextIdx]
-                                isPlaying = true
-                            }
+                            mediaController?.seekToNextMediaItem()
                         }) { Icon(Icons.Default.SkipNext, null, tint = Color.White) }
                     }
                 }
@@ -346,13 +334,11 @@ fun MusicScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         // --- CATEGORY ROW (THE FILTER TABS) ---
-        // 'LazyRow' means it scrolls left and right.
         androidx.compose.foundation.lazy.LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(categories) { category ->
-                // Individual Tab Chip
+            items(categories, key = { it }) { category ->
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { selectedCategory = category },
@@ -375,19 +361,26 @@ fun MusicScreen(navController: NavController) {
                 }
             }
         } else {
-            // 'LazyColumn' is a list that scrolls up and down.
             LazyColumn {
-                items(filteredTracks) { track ->
+                items(filteredTracks, key = { it.id }) { track ->
                     // Individual Music Item in the list
                     ListItem(
-                        headlineContent = { Text(track.title) }, // Main title
-                        supportingContent = { Text(track.artist) }, // Small artist name
+                        headlineContent = { Text(track.title) },
+                        supportingContent = { Text(track.artist) },
                         trailingContent = { 
-                            // Small play button on the right side of the list
                             IconButton(onClick = {
-                                if (currentTrack == track) isPlaying = !isPlaying else { currentTrack = track; isPlaying = true }
+                                val controller = mediaController ?: return@IconButton
+                                if (currentTrack?.id == track.id) {
+                                    if (isPlaying) controller.pause() else controller.play()
+                                } else {
+                                    val index = visibleTracks.indexOfFirst { it.id == track.id }
+                                    if (index != -1) {
+                                        controller.seekTo(index, 0L)
+                                        controller.play()
+                                    }
+                                }
                             }) {
-                                Icon(if (currentTrack == track && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
+                                Icon(if (currentTrack?.id == track.id && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null)
                             }
                         }
                     )

@@ -46,6 +46,10 @@ fun OnlineMusicScreen(onBack: () -> Unit) {
     val downloadedFiles = remember { mutableStateMapOf<String, Boolean>() } // Keeps track of what is already downloaded
     val downloadingProgress = remember { mutableStateMapOf<String, Float>() } // Tracks the % of a download (0.0 to 1.0)
     
+    // FILTER DATA
+    val filters = listOf("All", "Downloaded", "Available to Download")
+    var selectedFilter by remember { mutableStateOf("All") }
+
     // State to show the "Are you sure you want to delete?" popup
     var trackToDelete by remember { mutableStateOf<Track?>(null) }
 
@@ -62,6 +66,15 @@ fun OnlineMusicScreen(onBack: () -> Unit) {
     // Refresh the checkmarks on the screen
     fun refreshDownloadedStatus() {
         tracks.forEach { downloadedFiles[it.id.toString()] = isDownloaded(it) }
+    }
+
+    // FILTER LOGIC: This decides which songs to show based on your tab choice
+    val filteredTracks = remember(tracks.size, selectedFilter, downloadedFiles.size) {
+        when (selectedFilter) {
+            "Downloaded" -> tracks.filter { downloadedFiles[it.id.toString()] == true }
+            "Available to Download" -> tracks.filter { downloadedFiles[it.id.toString()] != true }
+            else -> tracks // Shows everything
+        }
     }
 
     // --- LOADING THE LIST ---
@@ -153,63 +166,80 @@ fun OnlineMusicScreen(onBack: () -> Unit) {
     }
 
     // --- UI DESIGN SECTION ---
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                // CHANGE: Change the title of the screen here
-                title = { Text("Online Library") },
-                navigationIcon = { 
-                    IconButton(onClick = onBack) { 
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null) 
-                    } 
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            
+            // TIP: Small back button since the header is gone
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+
+            // --- FILTER TABS ---
+            ScrollableTabRow(
+                selectedTabIndex = filters.indexOf(selectedFilter),
+                edgePadding = 0.dp,
+                containerColor = Color.Transparent,
+                divider = {}
+            ) {
+                filters.forEach { filter ->
+                    Tab(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        text = { Text(filter, style = MaterialTheme.typography.labelLarge) }
+                    )
                 }
-            )
-        }
-    ) { padding ->
-        // THE LIST: Scrolls up and down
-        LazyColumn(modifier = Modifier.padding(padding).padding(16.dp)) {
-            items(tracks) { track ->
-                // Check if this specific song is already downloaded or downloading
-                val isDownloaded = downloadedFiles[track.id.toString()] ?: false
-                val progress = downloadingProgress[track.id.toString()]
-                
-                ListItem(
-                    headlineContent = { Text(track.title, fontWeight = FontWeight.Bold) },
-                    supportingContent = { Text(track.artist) },
-                    trailingContent = {
-                        // The Right-Hand Icon (Download Button or Progress Circle)
-                        AnimatedContent(targetState = progress != null, label = "DownloadAnimation") { isDownloading ->
-                            if (isDownloading) {
-                                // SHOW PROGRESS CIRCLE
-                                val animatedProgress by animateFloatAsState(targetValue = progress ?: 0f, label = "SmoothProgress")
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
-                                    CircularProgressIndicator(progress = { animatedProgress }, modifier = Modifier.size(30.dp))
-                                    Text("${(animatedProgress * 100).toInt()}%", fontSize = 8.sp) // Show percentage
-                                }
-                            } else {
-                                // SHOW DOWNLOAD OR CHECKMARK ICON
-                                IconButton(onClick = { 
-                                    if (isDownloaded) {
-                                        // If already downloaded, clicking it again asks to delete
-                                        trackToDelete = track
-                                    } else {
-                                        // If NOT downloaded, start the download worker
-                                        scope.launch { downloadTrack(track) } 
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // THE LIST: Scrolls up and down
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(filteredTracks) { track ->
+                    // Check if this specific song is already downloaded or downloading
+                    val isDownloaded = downloadedFiles[track.id.toString()] ?: false
+                    val progress = downloadingProgress[track.id.toString()]
+
+                    ListItem(
+                        headlineContent = { Text(track.title, fontWeight = FontWeight.Bold) },
+                        supportingContent = { Text(track.artist) },
+                        trailingContent = {
+                            // The Right-Hand Icon (Download Button or Progress Circle)
+                            AnimatedContent(targetState = progress != null, label = "DownloadAnimation") { isDownloading ->
+                                if (isDownloading) {
+                                    // SHOW PROGRESS CIRCLE
+                                    val animatedProgress by animateFloatAsState(targetValue = progress ?: 0f, label = "SmoothProgress")
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(40.dp)) {
+                                        CircularProgressIndicator(progress = { animatedProgress }, modifier = Modifier.size(30.dp))
+                                        Text("${(animatedProgress * 100).toInt()}%", fontSize = 8.sp) // Show percentage
                                     }
-                                }) {
-                                    Icon(
-                                        // Icons change based on status
-                                        imageVector = if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                                        contentDescription = null,
-                                        // CHANGE: Change colors for Download vs Done status
-                                        tint = if (isDownloaded) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
-                                    )
+                                } else {
+                                    // SHOW DOWNLOAD OR CHECKMARK ICON
+                                    IconButton(onClick = {
+                                        if (isDownloaded) {
+                                            // If already downloaded, clicking it again asks to delete
+                                            trackToDelete = track
+                                        } else {
+                                            // If NOT downloaded, start the download worker
+                                            scope.launch { downloadTrack(track) }
+                                        }
+                                    }) {
+                                        Icon(
+                                            // Icons change based on status
+                                            imageVector = if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
+                                            contentDescription = null,
+                                            // CHANGE: Change colors for Download vs Done status
+                                            tint = if (isDownloaded) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                )
-                HorizontalDivider() // Line between items
+                    )
+                    HorizontalDivider() // Line between items
+                }
             }
         }
     }
