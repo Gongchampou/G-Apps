@@ -1,26 +1,86 @@
 [
   {
-    "name": "Default Study",
-    "imagePath": "study_default.png"
+  "name": "Default Study",
+  "imagePath": "cooking.gif"
   },
   {
     "name": "Relaxing Girl",
-    "imagePath": "avatar-2.png"
+    "imagePath": "sleep.gif"
   },
   {
     "name": "Focus Boy",
-    "imagePath": "avatar-3.png"
+    "imagePath": "running.gif"
   },
   {
     "name": "Fat Boys" ,
-    "imagePath": "avatar-4.png"
+    "imagePath": "reading.gif"
   },
   {
     "name": "good Boys" ,
-    "imagePath": "my-avatar.png"
+    "imagePath": "source.gif"
   },
   {
     "name": "Fat Boys" ,
-    "imagePath": "source.gif"
+    "imagePath": "prayer.gif"
+  },
+  {
+  "name": "Default Study",
+  "imagePath": "dog.gif"
+  },
+  {
+  "name": "Relaxing Girl",
+  "imagePath": "dog2.gif"
+  },
+  {
+  "name": "Focus Boy",
+  "imagePath": "dog3.gif"
+  },
+  {
+  "name": "Fat Boys" ,
+  "imagePath": "dog4.gif"
+  },
+  {
+  "name": "good Boys" ,
+  "imagePath": "study.gif"
+  },
+  {
+  "name": "Fat Boys" ,
+  "imagePath": "study1.gif"
+  },
+  {
+    "name": "Default Study",
+    "imagePath": "study2.gif"
+  },
+  {
+    "name": "Relaxing Girl",
+    "imagePath": "study3.gif"
+  },
+  {
+    "name": "Focus Boy",
+    "imagePath": "study4.gif"
+  },
+  {
+    "name": "Fat Boys" ,
+    "imagePath": "relax.gif"
+  },
+  {
+    "name": "good Boys" ,
+    "imagePath": "relax1.gif"
+  },
+  {
+    "name": "Fat Boys" ,
+    "imagePath": "relax2.gif"
+  },
+  {
+    "name": "Default Study",
+    "imagePath": "relax3.gif"
+  },
+  {
+    "name": "Relaxing Girl",
+    "imagePath": "relax4.gif"
+  },
+  {
+    "name": "Focus Boy",
+    "imagePath": "relax5.gif"
   }
 ]

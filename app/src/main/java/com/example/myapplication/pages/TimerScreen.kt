@@ -172,7 +172,7 @@ fun TimerScreen(viewModel: TaskViewModel) {
                                 ) {
                                     // Shows character images from the 'assets/images' folder
                                     Image(
-                                        painter = rememberAsyncImagePainter("file:///android_asset/images/${char.imagePath}"),
+                                        painter = rememberAsyncImagePainter("file:///android_asset/images/character/${char.imagePath}"),
                                         contentDescription = char.name,
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -331,7 +331,7 @@ fun ActiveFocusDisplay(task: Task, onStop: () -> Unit, viewModel: TaskViewModel)
                 )
 
                 Image(
-                    painter = rememberAsyncImagePainter("file:///android_asset/images/${task.characterImageName}"),
+                    painter = rememberAsyncImagePainter("file:///android_asset/images/character/${task.characterImageName}"),
                     contentDescription = null,
                     modifier = Modifier.size(180.dp).scale(if (isFinished) scale else 1f),
                     contentScale = ContentScale.Fit
@@ -403,7 +403,7 @@ fun TaskCard(task: Task, onToggle: () -> Unit, onDelete: () -> Unit) {
         ) {
             // Small character avatar
             Image(
-                painter = rememberAsyncImagePainter("file:///android_asset/images/${task.characterImageName}"),
+                painter = rememberAsyncImagePainter("file:///android_asset/images/character/${task.characterImageName}"),
                 contentDescription = null,
                 modifier = Modifier.size(32.dp).clip(CircleShape)
             )

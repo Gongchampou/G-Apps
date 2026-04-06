@@ -180,7 +180,7 @@ fun BookItem(book: Ebook, onClick: () -> Unit) {
                     .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)), // Clips image to top corners
                 contentAlignment = Alignment.Center // Centers content if no image is found
             ) {
-                if (book.coverImage.isNotEmpty()) {
+                if (!book.coverImage.isNullOrEmpty()) {
                     val isSvgString = book.coverImage.trim().startsWith("<svg", ignoreCase = true)
                     
                     if (isSvgString) {
@@ -223,12 +223,6 @@ fun BookItem(book: Ebook, onClick: () -> Unit) {
                     maxLines = 1, // Cuts off text if too long
                     overflow = TextOverflow.Ellipsis // Adds "..." if text is cut off
                 )
-                // Author Name
-                Text(
-                    text = book.author, 
-                    style = MaterialTheme.typography.bodySmall, // Smaller font for author
-                    color = Color.Gray // CHANGE: Change color for author text
-                )
             }
         }
     }
@@ -241,9 +235,13 @@ fun BookItem(book: Ebook, onClick: () -> Unit) {
 private fun readDocxText(inputStream: java.io.InputStream): String {
     val zipInputStream = java.util.zip.ZipInputStream(inputStream)
     val sb = StringBuilder()
+    var entriesProcessed = 0
+    val maxEntries = 100 // Security: Limit number of entries to prevent Zip bombs
+    
     try {
         var entry = zipInputStream.nextEntry
-        while (entry != null) {
+        while (entry != null && entriesProcessed < maxEntries) {
+            entriesProcessed++
             if (entry.name == "word/document.xml") {
                 val xmlContent = zipInputStream.bufferedReader().readText()
                 // Match paragraphs
@@ -327,25 +325,47 @@ private fun cleanWordHtml(html: String): String {
 @Composable
 fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
     val context = LocalContext.current
-    // State to hold the actual content (resolved if it was a path)
-    var displayContent by remember(book.content) { 
-        mutableStateOf(if (book.content.endsWith(".docx") || book.content.contains("/")) "" else book.content)
+    
+    // Improved logic to prioritize literal content (HTML, JSON, or text) over file paths.
+    val isProbablyPath = remember(book.content) {
+        val trimmed = book.content.trim()
+        // If it looks like data (tags, JSON, multiple words, newlines), it's not a path.
+        val isLikelyData = trimmed.startsWith("<") || 
+                           trimmed.startsWith("{") || 
+                           trimmed.startsWith("[") ||
+                           trimmed.contains("\n") ||
+                           trimmed.contains("  ") ||
+                           (trimmed.contains(" ") && !trimmed.contains("/"))
+        
+        !isLikelyData && (trimmed.endsWith(".docx") || trimmed.endsWith(".htm") || trimmed.contains("/"))
     }
 
-    // Effect to load content from assets if the content field is a path
+    // State to hold the actual content (resolved if it was a path)
+    var displayContent by remember(book.content) { 
+        mutableStateOf(if (isProbablyPath) "" else book.content)
+    }
+
+    // Effect to load content from assets if the content field looks like a path.
+    // If loading fails or the file is missing, we fallback to showing the content string as data.
     LaunchedEffect(book.content) {
-        if (book.content.endsWith(".docx") || book.content.endsWith(".htm") || book.content.contains("/")) {
+        if (isProbablyPath) {
             try {
-                val path = book.content
-                context.assets.open(path).use { stream ->
-                    displayContent = when {
-                        path.endsWith(".docx") -> readDocxText(stream)
+                val path = book.content.trim()
+                val result = context.assets.open(path).use { stream ->
+                    when {
+                        path.endsWith(".docx") -> {
+                            val docxText = readDocxText(stream)
+                            if (docxText.startsWith("Error parsing .docx:")) throw Exception(docxText)
+                            docxText
+                        }
                         path.endsWith(".htm") -> cleanWordHtml(stream.bufferedReader().use { it.readText() })
                         else -> stream.bufferedReader().use { it.readText() }
                     }
                 }
+                displayContent = result
             } catch (e: Exception) {
-                displayContent = "Error loading book content: ${e.message}"
+                // Silently fallback to raw content if asset loading or parsing fails.
+                displayContent = book.content
             }
         }
     }
@@ -355,7 +375,6 @@ fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
     // CHANGE: Edit these colors to customize the "Eye-Care" mode experience
     val backgroundColor = if (isReadingMode) Color(0xFFF4ECD8) else MaterialTheme.colorScheme.surface
     val textColor = if (isReadingMode) Color(0xFF5B4636) else MaterialTheme.colorScheme.onSurface
-    val authorColor = if (isReadingMode) Color(0xFF8B735B) else Color.Gray
 
     // Shows the reader in a full-screen window layer
     Dialog(
@@ -364,90 +383,87 @@ fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
     ) {
         Scaffold(
             topBar = {
-                // Header layout for Back and Read Mode buttons
-                Box(
+                // Header layout for Back, Title, and Read Mode buttons
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth() // Header width
-                        .windowInsetsPadding(WindowInsets.statusBars) // Space for status bar icons
-                        .padding(horizontal = 8.dp) // Side padding for buttons
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(top = 4.dp)
                 ) {
-                    // The button used to close the reader
-                    IconButton(
-                        onClick = onBack, 
+                    Row(
                         modifier = Modifier
-                            .size(38.dp)
-                            .align(Alignment.CenterStart) // Button area size
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Standard back arrow
-                            contentDescription = "Close Reader", 
-                            modifier = Modifier.size(30.dp), // CHANGE: Adjust back button icon size
-                            tint = textColor // Uses dynamic color so it remains visible in all modes
-                        )
-                    }
+                        // The button used to close the reader
+                        IconButton(
+                            onClick = onBack, 
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Close Reader", 
+                                modifier = Modifier.size(28.dp),
+                                tint = textColor
+                            )
+                        }
 
-                    // The button used to toggle Eye-Care (Sepia) mode
-                    IconButton(
-                        onClick = { isReadingMode = !isReadingMode }, // Swaps state on click
-                        modifier = Modifier
-                            .size(38.dp)
-                            .align(Alignment.CenterEnd) // Positioned at top right
-                    ) {
-                        Icon(
-                            imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility, // Eye icon
-                            contentDescription = "Toggle Reading Mode",
-                            modifier = Modifier.size(30.dp), // CHANGE: Adjust eye icon size
-                            tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary // CHANGE: Icon color
+                        // Displays the Book Title in the header, same line as back button
+                        Text(
+                            text = book.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp)
                         )
+
+                        // The button used to toggle Eye-Care (Sepia) mode
+                        IconButton(
+                            onClick = { isReadingMode = !isReadingMode },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isReadingMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Toggle Reading Mode",
+                                modifier = Modifier.size(28.dp),
+                                tint = if (isReadingMode) Color(0xFFE67E22) else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
+                    // Visual separator below the header
+                    HorizontalDivider(color = textColor.copy(alpha = 0.1f))
                 }
             },
-            containerColor = backgroundColor // Changes the background of the entire reader screen
+            containerColor = backgroundColor
         ) { padding ->
             // Container for the book text, makes it scrollable
             Column(
                 modifier = Modifier
-                    .fillMaxSize() // Fills screen
-                    .padding(padding) // Avoids overlapping top bar
-                    .padding(horizontal = 24.dp, vertical = 4.dp) // CHANGE: Adjust side margins for reading
-                    .verticalScroll(rememberScrollState()) // Enables up/down scrolling
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Displays the Book Title at the top of the page
-                Text(
-                    text = book.title, 
-                    style = MaterialTheme.typography.headlineMedium, // Large font style
-                    fontWeight = FontWeight.Bold, // Bold text
-                    textAlign = TextAlign.Center, // Centered title
-                    color = textColor, // Dynamic color based on Read Mode
-                    modifier = Modifier.fillMaxWidth() // Center within width
-                )
-                // Displays the Author name
-                Text(
-                    text = "by ${book.author}", 
-                    style = MaterialTheme.typography.bodyLarge, 
-                    color = authorColor, // Dynamic color (brownish in sepia mode)
-                    textAlign = TextAlign.Center, // Centered
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp) // Space below author
-                )
-                
-                // Visual horizontal line separator
-                HorizontalDivider(color = authorColor.copy(alpha = 0.3f)) 
-                Spacer(modifier = Modifier.height(24.dp)) // Vertical gap after line
-                
                 // Main reading content text
                 Text(
-                    // Converts HTML tags (like <b>) and replaces line breaks with HTML breaks
-                    text = if (book.content.endsWith(".htm")) {
-                        AnnotatedString.fromHtml(displayContent)
-                    } else {
-                        AnnotatedString.fromHtml(displayContent.replace("\n", "<br>"))
+                    // Converts HTML tags and ensures consistent paragraph spacing for all content types
+                    text = remember(displayContent) {
+                        val formatted = displayContent
+                            .replace("\n\n", "<br><br>")
+                            .replace("\n", "<br>")
+                        AnnotatedString.fromHtml(formatted)
                     },
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp), // CHANGE: Font size now controlled by settings
-                    lineHeight = (fontSize * 1.5).sp, // CHANGE: Proportional line height for readability
-                    textAlign = TextAlign.Justify, // Aligns text to both sides for a clean look
-                    color = textColor // Dynamic color for comfortable reading
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp),
+                    lineHeight = (fontSize * 1.6).sp, // Increased line height for readability
+                    textAlign = TextAlign.Justify,
+                    color = textColor,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 )
                 
                 // Extra space at the very bottom so the last lines aren't cut off by screen edges

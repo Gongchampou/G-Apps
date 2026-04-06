@@ -32,6 +32,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import coil.decode.SvgDecoder
 import com.example.myapplication.PlaybackService
 import com.example.myapplication.Track
@@ -73,20 +75,36 @@ fun MusicScreen(navController: NavController) {
     // HOW TO CHANGE: You can add more words inside these quotes to add new tabs!
     val categories = listOf("All", "Study", "Sleep", "Relaxation", "Work", "Focus")
     
-    // SVG Backgrounds for each category
-    // CHANGE: You can paste your SVG code here for each category!
+    /**
+     * --- BACKGROUND CUSTOMIZATION GUIDE ---
+     * Change the values below to update the "Now Playing" background for each category:
+     * 1. SVG Code: Keep the """<svg>...</svg>""" format.
+     * 2. Local Image (PNG/JPG/GIF/AVIF): Use "file:///android_asset/music-play/your_image.png"
+     * 3. Web Image: Use "https://example.com/image.jpg"
+     * 
+     * Note: GIFs will animate automatically!
+     */
     val categoryBackgrounds = remember {
-        mapOf(
-            "Study" to """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="400" height="600"><defs><linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#b8e0d2" /><stop offset="100%" stop-color="#e8f4f8" /></linearGradient><linearGradient id="oceanGrad1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#00a8e8" /><stop offset="100%" stop-color="#006994" /></linearGradient><linearGradient id="oceanGrad2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#0096d6" /><stop offset="100%" stop-color="#005b82" /></linearGradient><path id="wave" d="M 0 0 Q 100 15 200 0 T 400 0 T 600 0 T 800 0 T 1000 0 T 1200 0 T 1400 0 T 1600 0 L 1600 200 L 0 200 Z" /><path id="leaf" d="M 0 0 Q 30 -20 80 0 Q 30 20 0 0" fill="#5c7a3b" /><path id="leaf-light" d="M 0 0 Q 30 -20 80 0 Q 30 20 0 0" fill="#759c44" /></defs><rect width="800" height="600" fill="url(#skyGrad)" /><path d="M 0 420 Q 150 390 300 420 T 600 420 L 800 420 L 800 600 L 0 600 Z" fill="#3b5930" /><rect x="0" y="440" width="800" height="160" fill="#005b82" /><g opacity="0.8"><use href="#wave" x="0" y="440" fill="url(#oceanGrad2)"><animate attributeName="x" from="0" to="-800" dur="7s" repeatCount="indefinite" /></use></g><g><use href="#wave" x="0" y="450" fill="white" opacity="0.6"><animate attributeName="x" from="-400" to="-1200" dur="5s" repeatCount="indefinite" /></use><use href="#wave" x="0" y="455" fill="url(#oceanGrad1)"><animate attributeName="x" from="-400" to="-1200" dur="5s" repeatCount="indefinite" /></use></g><g><use href="#wave" x="0" y="470" fill="white" opacity="0.8"><animate attributeName="x" from="0" to="-800" dur="3.5s" repeatCount="indefinite" /></use><use href="#wave" x="0" y="475" fill="url(#oceanGrad1)"><animate attributeName="x" from="0" to="-800" dur="3.5s" repeatCount="indefinite" /></use></g><path d="M 0 490 Q 150 480 300 520 T 700 540 Q 750 550 800 530 L 800 600 L 0 600 Z" fill="#e3b778" /><path d="M 0 530 Q 100 520 250 550 T 600 580 L 800 570 L 800 600 L 0 600 Z" fill="#d4a35e" /><g><path d="M 80 600 Q 110 380 200 200" stroke="#b06c49" stroke-width="20" fill="none" stroke-linecap="round" /><g transform="translate(200, 200)"><animateTransform attributeName="transform" type="rotate" values="0; 3; 0; -2; 0" dur="6s" repeatCount="indefinite" additive="sum" /><use href="#leaf" transform="rotate(-150)" /><use href="#leaf-light" transform="rotate(-110)" /><use href="#leaf" transform="rotate(-70)" /><use href="#leaf-light" transform="rotate(-30)" /><use href="#leaf" transform="rotate(10)" /><use href="#leaf-light" transform="rotate(50)" /><use href="#leaf" transform="rotate(90)" /></g></g><g><path d="M 30 600 Q 50 350 140 150" stroke="#94583a" stroke-width="24" fill="none" stroke-linecap="round" /><g transform="translate(140, 150)"><animateTransform attributeName="transform" type="rotate" values="0; -4; 0; 3; 0" dur="5s" repeatCount="indefinite" additive="sum" /><use href="#leaf" transform="scale(1.2) rotate(-160)" /><use href="#leaf-light" transform="scale(1.3) rotate(-120)" /><use href="#leaf" transform="scale(1.2) rotate(-80)" /><use href="#leaf-light" transform="scale(1.4) rotate(-40)" /><use href="#leaf" transform="scale(1.3) rotate(0)" /><use href="#leaf-light" transform="scale(1.2) rotate(40)" /><use href="#leaf" transform="scale(1.1) rotate(80)" /><use href="#leaf-light" transform="scale(1.1) rotate(120)" /></g></g></svg>""",
-            "Sleep" to """<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg"><!-- Definitions --><defs><!-- Night sky gradient --><linearGradient id="nightSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0b1d3a"/><stop offset="100%" stop-color="#1c355e"/></linearGradient><!-- Glow effect --><radialGradient id="moonGlow"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs><!-- Background --><rect width="800" height="500" fill="url(#nightSky)"/><!-- Moon glow --><circle cx="650" cy="100" r="80" fill="url(#moonGlow)"/><!-- Moon --><circle cx="650" cy="100" r="40" fill="#f5f3ce"><animate attributeName="opacity" values="0.95;1;0.95" dur="6s" repeatCount="indefinite"/></circle><!-- Stars --><g fill="#ffffff"><circle cx="100" cy="80" r="2"><animate attributeName="opacity" values="1;0.3;1" dur="4s" repeatCount="indefinite"/></circle><circle cx="200" cy="50" r="1.5"><animate attributeName="opacity" values="0.8;0.2;0.8" dur="5s" repeatCount="indefinite"/></circle><circle cx="300" cy="120" r="2"><animate attributeName="opacity" values="1;0.4;1" dur="6s" repeatCount="indefinite"/></circle><circle cx="500" cy="60" r="1.5"><animate attributeName="opacity" values="0.9;0.3;0.9" dur="5s" repeatCount="indefinite"/></circle><circle cx="720" cy="180" r="2"><animate attributeName="opacity" values="1;0.5;1" dur="7s" repeatCount="indefinite"/></circle></g><!-- Floating clouds --><g fill="#ffffff" opacity="0.08"><ellipse cx="200" cy="200" rx="120" ry="40"><animateTransform attributeName="transform" type="translate" values="0 0; 40 0; 0 0" dur="20s" repeatCount="indefinite"/></ellipse><ellipse cx="500" cy="250" rx="150" ry="50"><animateTransform attributeName="transform" type="translate" values="0 0; -50 0; 0 0" dur="25s" repeatCount="indefinite"/></ellipse></g><!-- Hills --><path d="M0 350 Q200 300 400 350 T800 350 V500 H0 Z" fill="#0a1a33"/><path d="M0 400 Q300 350 800 400 V500 H0 Z" fill="#081426"/></svg>""",
-            "Relaxation" to """<svg viewBox="0 0 400 600"><rect width="400" height="600" fill="#FFF3E0"/><path d="M0 300 Q200 100 400 300" fill="#FFE0B2" opacity="0.5"/></svg>""",
-            "Work" to """<svg viewBox="0 0 400 600"><rect width="400" height="600" fill="#ECEFF1"/><rect x="50" y="50" width="300" height="500" fill="#CFD8DC" opacity="0.3"/></svg>""",
-            "Focus" to """<svg viewBox="0 0 400 600"><rect width="400" height="600" fill="#F3E5F5"/><circle cx="200" cy="300" r="100" fill="none" stroke="#E1BEE7" stroke-width="5"/></svg>"""
+        mutableStateMapOf(
+            "Study" to "file:///android_asset/images/music-play/beach.gif/",
+            "Sleep" to "file:///android_asset/images/music-play/sleepwork.gif/",
+            "Relaxation" to "file:///android_asset/images/music-play/relax.gif/",
+            "Work" to "file:///android_asset/images/music-play/work.gif/",
+            "Focus" to "file:///android_asset/images/music-play/focus.gif/"
         )
     }
 
     val imageLoader = remember {
-        ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build()
+        ImageLoader.Builder(context)
+            .components {
+                add(SvgDecoder.Factory())
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
+            }
+            .build()
     }
     
     // Tracks which tab you clicked on. Default is "All".
@@ -280,21 +298,23 @@ fun MusicScreen(navController: NavController) {
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // CATEGORY BACKGROUND
-                currentTrack?.category?.let { cat ->
-                    categoryBackgrounds[cat]?.let { svg ->
-                        val painter = rememberAsyncImagePainter(
-                            model = svg.toByteArray(),
-                            imageLoader = imageLoader
-                        )
-                        Image(
-                            painter = painter,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            alpha = 0.6f
-                        )
-                    }
+                // BACKGROUND IMAGE (Follows the filter/category)
+                val bgCategory = if (selectedCategory != "All") selectedCategory else currentTrack?.category
+                val backgroundModel = categoryBackgrounds[bgCategory]
+
+                if (backgroundModel != null) {
+                    val isRawSvg = backgroundModel.startsWith("<svg")
+                    val painter = rememberAsyncImagePainter(
+                        model = if (isRawSvg) backgroundModel.toByteArray() else backgroundModel,
+                        imageLoader = imageLoader
+                    )
+                    Image(
+                        painter = painter,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        alpha = 0.6f
+                    )
                 }
 
                 Column(

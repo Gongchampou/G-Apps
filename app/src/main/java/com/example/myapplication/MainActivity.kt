@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -148,7 +149,13 @@ fun BottomNavigationBar(navController: NavHostController) {
         items.forEach { screen ->
             NavigationBarItem(
                 icon = { Icon(screen.icon, contentDescription = screen.label) },
-                label = { Text(screen.label) },
+                label = { 
+                    Text(
+                        screen.label, 
+                        style = MaterialTheme.typography.labelLarge, // Slightly bigger text
+                        fontWeight = FontWeight.Bold // Make it stand out
+                    ) 
+                },
                 selected = currentRoute == screen.route,
                 onClick = {
                     // Logic to jump to the clicked screen
