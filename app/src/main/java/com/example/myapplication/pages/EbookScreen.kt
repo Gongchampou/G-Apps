@@ -28,6 +28,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -455,13 +457,23 @@ fun EbookReader(book: Ebook, fontSize: Float, onBack: () -> Unit) {
                     // Converts HTML tags and ensures consistent paragraph spacing for all content types
                     text = remember(displayContent) {
                         val formatted = displayContent
+                            .replace("\r", "") // Remove carriage returns
+                            .replace("\t", " ") // Replace tabs with a single space
+                            .replace("\u00A0", " ") // Replace non-breaking spaces
+                            .replace(Regex(" +"), " ") // Collapses multiple spaces into one
+                            .split("\n")
+                            .joinToString("\n") { it.trim() } // Clean up each line
                             .replace("\n\n", "<br><br>")
                             .replace("\n", "<br>")
                         AnnotatedString.fromHtml(formatted)
                     },
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = fontSize.sp),
-                    lineHeight = (fontSize * 1.6).sp, // Increased line height for readability
-                    textAlign = TextAlign.Justify,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = fontSize.sp,
+                        lineBreak = LineBreak.Paragraph, // High-quality line breaking for professional reading
+                        hyphens = Hyphens.Auto // Automatically hyphenates words to prevent large white gaps
+                    ),
+                    lineHeight = (fontSize * 1.6).sp, // Comfortable line height for reading
+                    textAlign = TextAlign.Justify, // Standard for e-books; now looks natural with hyphenation
                     color = textColor,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 )
