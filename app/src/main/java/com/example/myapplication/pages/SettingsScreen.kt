@@ -1,49 +1,75 @@
+// LINE 1: This is the package name. It tells the app that this file belongs in the 'pages' folder.
 package com.example.myapplication.pages
 
+// LINE 4: We bring in 'clickable' so we can make parts of the screen respond when you touch them.
 import androidx.compose.foundation.clickable
+// LINE 6: These 'layout' tools help us stack things vertically (Column) or horizontally (Row).
 import androidx.compose.foundation.layout.*
+// LINE 8: This makes the corners of our boxes look soft and rounded instead of pointy.
 import androidx.compose.foundation.shape.RoundedCornerShape
+// LINE 10: This gives us access to all the small icons like the Gear, Checkmark, and Arrow.
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
+// LINE 12: We import all the 'filled' icons so we can use them anywhere in the file.
+import androidx.compose.material.icons.filled.*
+// LINE 14: Material3 is the design language that makes the buttons and text look modern and clean.
 import androidx.compose.material3.*
+// LINE 16: 'runtime' tools help the app "remember" settings even when the screen changes.
 import androidx.compose.runtime.*
+// LINE 18: 'Alignment' is used to center text and icons so they look perfectly straight.
 import androidx.compose.ui.Alignment
+// LINE 20: 'Modifier' is a tool that lets us change the size, padding, and color of anything.
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+// LINE 22: 'Color' allows us to use specific shades like Green, Gray, and Blue.
 import androidx.compose.ui.graphics.Color
+// LINE 24: 'LocalContext' helps the app find files that are saved on your phone.
 import androidx.compose.ui.platform.LocalContext
+// LINE 26: 'LocalUriHandler' lets the app open web links (like GitHub) in your browser.
 import androidx.compose.ui.platform.LocalUriHandler
+// LINE 28: 'FontWeight' is used to make text Bold or extra thick so it's easy to read.
 import androidx.compose.ui.text.font.FontWeight
+// LINE 30: 'dp' is a unit for measuring distance and size on the screen.
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+// LINE 32: 'NavController' is the tool that lets the user jump from one screen to another.
 import androidx.navigation.NavController
+// LINE 34: 'Screen' is a list of all the different pages in our app.
 import com.example.myapplication.Screen
+// LINE 36: 'TaskViewModel' is the "Brain" that stores your settings and data.
 import com.example.myapplication.TaskViewModel
+// LINE 38: 'Track' is a template for a single music song (Title, Artist, etc.).
 import com.example.myapplication.Track
+// LINE 40: 'Gson' is a tool that reads the 'music_list.json' file so we know what songs exist.
 import com.google.gson.Gson
+// LINE 42: 'TypeToken' helps Gson understand how to turn text into a list of songs.
 import com.google.gson.reflect.TypeToken
+// LINE 44: 'java.io.File' is a tool that lets the app look at files in your phone's memory.
 import java.io.File
 
 /**
- * SettingsScreen: Manages application-wide preferences and storage overview.
- * Users can toggle theme modes, control notifications, and access the storage management view.
+ * LINE 48: The SettingsScreen function builds the entire settings page.
+ * It's where you change things like Dark Mode, Sound, and Font Size.
  */
 @Composable
 fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
-    // INSTRUCTION: Observes ViewModel state for persistent user preferences
+    // LINE 53: We "watch" the Dark Mode setting. If it's on, the screen turns dark.
     val isDarkMode by viewModel.isDarkMode.collectAsState()
+    // LINE 55: We "watch" the Notifications setting to see if you want alerts.
     val isNotificationsEnabled by viewModel.isNotificationsEnabled.collectAsState()
+    // LINE 57: This checks if the phone should vibrate when the timer stops.
     val isVibrationEnabled by viewModel.isVibrationEnabled.collectAsState()
+    // LINE 59: This checks if the app should play a sound when the timer stops.
     val isSoundEnabled by viewModel.isSoundEnabled.collectAsState()
     
-    // INSTRUCTION: Tool for opening external links (GitHub)
+    // LINE 62: This tool handles opening websites for us.
     val uriHandler = LocalUriHandler.current
+    // LINE 64: This tool helps find where the app stores its music files.
     val context = LocalContext.current
     
-    // INSTRUCTION: Reactive count of successfully downloaded tracks
+    // LINE 67: This keeps a count of how many songs you've downloaded so far.
     var downloadCount by remember { mutableIntStateOf(0) }
     
-    // INSTRUCTION: Utility to match the track's local storage identity
+    // LINE 70: This helper function makes sure the file names match (e.g., 'track_1.mp3').
     fun getFileName(track: Track): String {
         return if (track.url.isBlank()) {
             track.fileName
@@ -53,8 +79,8 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     }
 
     /**
-     * updateDownloadCount: Verifies storage state and updates the local count.
-     * Only counts tracks that physically exist and are not corrupted (empty).
+     * LINE 80: This function looks in the 'music' folder on your phone and counts
+     * only the songs that have been successfully downloaded.
      */
     fun updateDownloadCount() {
         try {
@@ -62,7 +88,6 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
             val type = object : TypeToken<List<Track>>() {}.type
             val allTracks: List<Track> = Gson().fromJson(jsonString, type)
             val musicDir = File(context.filesDir, "music")
-            // INSTRUCTION: Filter logic matches DownloadedMusicScreen for total consistency
             downloadCount = allTracks.count { track ->
                 val file = File(musicDir, getFileName(track))
                 track.url.isNotBlank() && file.exists() && file.length() > 0
@@ -72,95 +97,155 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
         }
     }
 
-    // INSTRUCTION: Recalculate count whenever this screen is displayed
+    // LINE 98: As soon as you open this page, the app counts your downloaded songs.
     LaunchedEffect(Unit) {
         updateDownloadCount()
     }
     
+    // LINE 103: Column puts all the settings in a vertical list from top to bottom.
     Column(modifier = Modifier.padding(24.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
         
-        // INSTRUCTION: Toggle controls for basic app settings
-        SettingsToggle("Dark Mode", isDarkMode) { viewModel.setDarkMode(it) }
-        SettingsToggle("Enable Notifications", isNotificationsEnabled) { viewModel.setNotifications(it) }
-        SettingsToggle("Vibration on Stop", isVibrationEnabled) { viewModel.setVibration(it) }
-        SettingsToggle("Sound on Stop", isSoundEnabled) { viewModel.setSound(it) }
+        // LINE 106: The main title at the top of the settings page.
+        Text("General Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // INSTRUCTION: E-book Font Size Control
-        Text("E-book Font Size", fontWeight = FontWeight.Bold)
+        SettingsToggle("Dark Mode", isDarkMode) { viewModel.setDarkMode(it) }
+        SettingsToggle("Notifications", isNotificationsEnabled) { viewModel.setNotifications(it) }
+        SettingsToggle("Vibration", isVibrationEnabled) { viewModel.setVibration(it) }
+        SettingsToggle("Sound", isSoundEnabled) { viewModel.setSound(it) }
+
+        // LINE 116: This setting controls how you see your money tracking (Circle vs Card).
+        val showCircularProgress by viewModel.showCircularProgress.collectAsState()
+        SettingsToggle(
+            label = if (showCircularProgress) "Money: Circle View" else "Money: Card View",
+            checked = showCircularProgress
+        ) { viewModel.setShowCircularProgress(it) }
+
+        // LINE 120: CURRENCY SELECTOR
+        // This is a button that opens a menu to pick your money symbol ($, €, etc).
+        val currentCurrency by viewModel.currency.collectAsState()
+        var showCurrencyMenu by remember { mutableStateOf(false) }
+        val currencies = listOf("$", "₹", "€", "£", "¥", "₩")
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Currency", style = MaterialTheme.typography.bodyLarge)
+            Box {
+                OutlinedButton(
+                    onClick = { showCurrencyMenu = true },
+                    modifier = Modifier.height(32.dp), // Reduced height
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(currentCurrency, fontSize = 14.sp)
+                }
+                DropdownMenu(
+                    expanded = showCurrencyMenu,
+                    onDismissRequest = { showCurrencyMenu = false }
+                ) {
+                    currencies.forEach { currency ->
+                        DropdownMenuItem(
+                            text = { Text(currency) },
+                            onClick = {
+                                viewModel.setCurrency(currency)
+                                showCurrencyMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // LINE 158: E-BOOK FONT SIZE SLIDER - COMPACTED
         val ebookFontSize by viewModel.ebookFontSize.collectAsState()
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${ebookFontSize.toInt()} sp", modifier = Modifier.width(48.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("E-book Font", style = MaterialTheme.typography.bodyLarge)
             Slider(
                 value = ebookFontSize,
                 onValueChange = { viewModel.setEbookFontSize(it) },
                 valueRange = 12f..32f,
                 steps = 10,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp).height(32.dp)
             )
+            Text("${ebookFontSize.toInt()}sp", fontSize = 12.sp, modifier = Modifier.width(36.dp))
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
 
-        // INSTRUCTION: Entry point to Downloaded Music management
+        // LINE 176: DOWNLOADED MUSIC FOLDER - COMPACTED
         Surface(
             onClick = { navController.navigate(Screen.DownloadedMusic.route) },
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(8.dp), // Reduced padding
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(16.dp))
+                Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) // Smaller icon
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Downloaded Music", fontWeight = FontWeight.Bold)
-                    Text("$downloadCount tracks saved", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("Downloaded Music", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("$downloadCount tracks saved", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp)) // Reduced from 24.dp
 
-        // INSTRUCTION: App Information and Branding section
-        Text("Open Source Focus App v1.0", color = Color.Gray, fontWeight = FontWeight.Bold)
-        Text("Completely free and private. No accounts needed.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        // LINE 200: INFO SECTION
+        // This shows the app version and developer name.
+        Text("Open Source Focus App v1.0", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Text("Completely free and private. No accounts needed.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("About", color = Color.Gray, fontWeight = FontWeight.Bold)
-        Text("This app is Created by Gongchampou kamei.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("About", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Text("This app was created by Gongchampou Kamei.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
 
-        Spacer(modifier = Modifier.height(40.dp))
-        // INSTRUCTION: External link to view source code
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // LINE 212: THE GITHUB BUTTON
+        // This opens the project code on GitHub so anyone can see it.
         Button(
             onClick = { 
                 uriHandler.openUri("https://github.com/Gongchampou/an-focus.git")
             },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+            shape = RoundedCornerShape(8.dp)
         ) {
-            Text("View on GitHub", color = Color.White)
+            Text("View on GitHub", color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 /**
- * SettingsToggle: A reusable UI component for labeled switches.
+ * LINE 228: SettingsToggle is a special helper row for settings like 'Dark Mode'.
+ * I have put back the Switch and reduced its size.
  */
 @Composable
 fun SettingsToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onCheckedChange(!checked) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // LINE 242: The text description of the setting.
         Text(label, style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        
+        // LINE 245: THE COMPACT SWITCH
+        // I put the switch back but scaled it down to 0.7x size to make it look smaller.
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.scale(0.7f)
+        )
     }
 }

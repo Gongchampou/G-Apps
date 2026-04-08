@@ -24,6 +24,14 @@ data class Todo(
     val isCompleted: Boolean = false
 )
 
+@Entity(tableName = "money_entries")
+data class MoneyEntry(
+    @PrimaryKey val id: UUID = UUID.randomUUID(),
+    val amount: Float,
+    val description: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 data class Track(
     val id: Int,
     val title: String,

@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -302,15 +304,28 @@ fun ActiveFocusDisplay(task: Task, onStop: () -> Unit, viewModel: TaskViewModel)
 
             // Drawing the actual progress circle
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val strokeWidth = 12.dp.toPx() // CHANGE: Thickness of the circle lines
+                val strokeWidth = 12.dp.toPx()
+                val diameter = size.minDimension - strokeWidth
+                val topLeft = Offset(
+                    (size.width - diameter) / 2,
+                    (size.height - diameter) / 2
+                )
+                val arcSize = Size(diameter, diameter)
+
                 // Background gray circle
-                drawCircle(color = trackColor, style = Stroke(width = strokeWidth))
+                drawCircle(
+                    color = trackColor,
+                    radius = diameter / 2,
+                    style = Stroke(width = strokeWidth)
+                )
                 // Colored progress arc
                 drawArc(
                     color = progressColor,
                     startAngle = -90f,
                     sweepAngle = 360f * animatedProgress,
                     useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                 )
             }

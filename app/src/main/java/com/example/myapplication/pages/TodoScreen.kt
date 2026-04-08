@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,22 +21,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.Todo
 import com.example.myapplication.TaskViewModel
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.text.KeyboardOptions
 
 /**
  * TodoScreen: A simple page to manage your daily tasks.
  * You can add tasks, check them off, or delete them.
  */
 @Composable
-fun TodoScreen(viewModel: TaskViewModel) {
+fun TodoScreen(viewModel: TaskViewModel, onNavigateToMoney: () -> Unit) {
     // State to hold the text currently typed in the input box
     var text by remember { mutableStateOf("") }
     
     // Automatically updates the list whenever a task is added or removed in the ViewModel
     val todos by viewModel.todos.collectAsState()
+
+    val moneyLimit by viewModel.moneyLimit.collectAsState()
+    val moneySpent by viewModel.moneySpent.collectAsState()
+    var showMoneyDialog by remember { mutableStateOf(false) }
 
     // Trigger for the falling "fine" animation when a task is completed
     var animationTrigger by remember { mutableStateOf(0) }
@@ -46,13 +54,27 @@ fun TodoScreen(viewModel: TaskViewModel) {
         // Main layout container with padding around the edges
         Column(modifier = Modifier.padding(24.dp)) {
             
-            // PAGE TITLE
-            Text(
-                text = "To-Do List", 
-                style = MaterialTheme.typography.headlineLarge, 
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            // PAGE TITLE with Money Tracker Icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "To-Do List", 
+                    style = MaterialTheme.typography.headlineLarge, 
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                
+                IconButton(onClick = onNavigateToMoney) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Go to Money Tracker",
+                        tint = if (moneyLimit > 0 && moneySpent >= moneyLimit) Color.Red else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
             
             // INPUT AREA: Where you type new tasks
             Row(
@@ -115,7 +137,75 @@ fun TodoScreen(viewModel: TaskViewModel) {
 
         // The falling animation layer that triggers on completion
         FallingAnimation(trigger = animationTrigger)
+
+        if (showMoneyDialog) {
+            MoneyTrackerDialog(
+                currentLimit = moneyLimit,
+                currentSpent = moneySpent,
+                onDismiss = { showMoneyDialog = false },
+                onSave = { limit, spent ->
+                    viewModel.setMoneyLimit(limit)
+                    viewModel.setMoneySpent(spent)
+                    showMoneyDialog = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun MoneyTrackerDialog(
+    currentLimit: Float,
+    currentSpent: Float,
+    onDismiss: () -> Unit,
+    onSave: (Float, Float) -> Unit
+) {
+    var limitStr by remember { mutableStateOf(currentLimit.toString()) }
+    var spentStr by remember { mutableStateOf(currentSpent.toString()) }
+    val limit = limitStr.toFloatOrNull() ?: 0f
+    val spent = spentStr.toFloatOrNull() ?: 0f
+    val isOverLimit = limit > 0 && spent >= limit
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Money Spending Tracker") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isOverLimit) {
+                    Text(
+                        "WARNING: You have reached or exceeded your limit!",
+                        color = Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                OutlinedTextField(
+                    value = limitStr,
+                    onValueChange = { limitStr = it },
+                    label = { Text("Set Spending Limit") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = spentStr,
+                    onValueChange = { spentStr = it },
+                    label = { Text("Amount Spent") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Balance: ${limit - spent}", style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(limit, spent) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 /**

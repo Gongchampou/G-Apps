@@ -83,6 +83,7 @@ sealed class Screen(val route: String, val icon: ImageVector, val label: String)
     object Music : Screen("music", Icons.Default.MusicNote, "Focus")
     object Relax : Screen("relax", Icons.AutoMirrored.Filled.MenuBook, "E-Book")
     object Settings : Screen("settings", Icons.Default.Settings, "Settings")
+    object MoneyTracking : Screen("money_tracking", Icons.Default.AttachMoney, "Money")
     
     // These screens are hidden from the bottom bar but still part of the app logic
     object DownloadedMusic : Screen("downloaded_music", Icons.Default.Download, "Downloaded")
@@ -111,11 +112,14 @@ fun MainScreen(viewModel: TaskViewModel) {
             modifier = Modifier.padding(innerPadding)
         ) {
             // Each 'composable' block links a "Route" to a "Screen File"
-            composable(Screen.Todo.route) { TodoScreen(viewModel) }
+            composable(Screen.Todo.route) { 
+                TodoScreen(viewModel, onNavigateToMoney = { navController.navigate(Screen.MoneyTracking.route) }) 
+            }
             composable(Screen.Timer.route) { TimerScreen(viewModel) }
             composable(Screen.Music.route) { MusicScreen(navController) }
             composable(Screen.Relax.route) { EbookScreen(viewModel) }
             composable(Screen.Settings.route) { SettingsScreen(viewModel, navController) }
+            composable(Screen.MoneyTracking.route) { MoneyTrackingScreen(viewModel, onBack = { navController.popBackStack() }) }
             
             // Sub-pages for the Music screen
             composable(Screen.DownloadedMusic.route) { 

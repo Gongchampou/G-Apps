@@ -25,6 +25,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val taskDao = db.taskDao()
     private val todoDao = db.todoDao()
+    private val moneyDao = db.moneyDao()
     val settingsManager = SettingsManager(application)
 
     val tasks: StateFlow<List<Task>> = taskDao.getAllTasks()
@@ -45,8 +46,26 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     val isSoundEnabled: StateFlow<Boolean> = settingsManager.soundEffectsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val showCircularProgress: StateFlow<Boolean> = settingsManager.showCircularProgressFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val currency: StateFlow<String> = settingsManager.currencyFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "$")
+
+    val timerTone: StateFlow<String> = settingsManager.timerToneFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Default")
+
     val ebookFontSize: StateFlow<Float> = settingsManager.ebookFontSizeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 18f)
+
+    val moneyLimit: StateFlow<Float> = settingsManager.moneyLimitFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
+    val moneySpent: StateFlow<Float> = settingsManager.moneySpentFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
+
+    val moneyEntries: StateFlow<List<MoneyEntry>> = moneyDao.getAllMoneyEntries()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _characters = MutableStateFlow<List<FocusCharacter>>(emptyList())
     val characters = _characters.asStateFlow()
@@ -208,9 +227,23 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playSound() {
         try {
-            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val r = RingtoneManager.getRingtone(getApplication(), notification)
-            r.play()
+            val tone = timerTone.value
+            if (tone == "Default") {
+                val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val r = RingtoneManager.getRingtone(getApplication(), notification)
+                r.play()
+            } else {
+                // Play from assets/music
+                val assetManager = getApplication<Application>().assets
+                val fileName = "music/$tone.mp3"
+                val afd = assetManager.openFd(fileName)
+                val mediaPlayer = android.media.MediaPlayer()
+                mediaPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+                mediaPlayer.prepare()
+                mediaPlayer.start()
+                mediaPlayer.setOnCompletionListener { it.release() }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -270,9 +303,58 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setShowCircularProgress(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setShowCircularProgress(enabled)
+        }
+    }
+
+    fun setCurrency(currency: String) {
+        viewModelScope.launch {
+            settingsManager.setCurrency(currency)
+        }
+    }
+
+    fun setTimerTone(tone: String) {
+        viewModelScope.launch {
+            settingsManager.setTimerTone(tone)
+        }
+    }
+
     fun setEbookFontSize(size: Float) {
         viewModelScope.launch {
             settingsManager.setEbookFontSize(size)
+        }
+    }
+
+    fun setMoneyLimit(limit: Float) {
+        viewModelScope.launch {
+            settingsManager.setMoneyLimit(limit)
+            // When setting a new limit, clear all data and reset spent to zero
+            moneyDao.deleteAllMoneyEntries()
+            setMoneySpent(0f)
+        }
+    }
+
+    fun setMoneySpent(spent: Float) {
+        viewModelScope.launch {
+            settingsManager.setMoneySpent(spent)
+        }
+    }
+
+    fun addMoneyEntry(amount: Float, description: String) {
+        viewModelScope.launch {
+            moneyDao.insertMoneyEntry(MoneyEntry(amount = amount, description = description))
+            val currentSpent = moneySpent.value
+            setMoneySpent(currentSpent + amount)
+        }
+    }
+
+    fun removeMoneyEntry(entry: MoneyEntry) {
+        viewModelScope.launch {
+            moneyDao.deleteMoneyEntry(entry)
+            val currentSpent = moneySpent.value
+            setMoneySpent((currentSpent - entry.amount).coerceAtLeast(0f))
         }
     }
 }
