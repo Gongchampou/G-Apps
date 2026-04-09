@@ -42,6 +42,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
+import android.view.WindowManager
 import com.example.myapplication.Task
 import com.example.myapplication.TaskViewModel
 import com.example.myapplication.formatDuration
@@ -104,6 +107,7 @@ fun TimerScreen(viewModel: TaskViewModel) {
                     if (focusedTask.isRunning) {
                         viewModel.toggleTask(focusedTask.id)
                     }
+                    viewModel.stopSound() // Stop any playing ringtone
                     focusedTaskId = null
                 },
                 viewModel = viewModel
@@ -236,6 +240,19 @@ fun TimerScreen(viewModel: TaskViewModel) {
 @Composable
 fun ActiveFocusDisplay(task: Task, onStop: () -> Unit, viewModel: TaskViewModel) {
     var currentTimeMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val keepScreenAwake by viewModel.keepScreenAwake.collectAsState()
+    val context = LocalContext.current
+
+    // Keep screen awake logic
+    DisposableEffect(task.isRunning, keepScreenAwake) {
+        val window = (context as? Activity)?.window
+        if (task.isRunning && keepScreenAwake) {
+            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
 
     // Refreshes the timer every 1 second
     LaunchedEffect(task.id) {
@@ -259,11 +276,14 @@ fun ActiveFocusDisplay(task: Task, onStop: () -> Unit, viewModel: TaskViewModel)
     // ALARMS: Makes the phone vibrate/play sound when the timer ends
     LaunchedEffect(isFinished) {
         if (isFinished) {
+            // Check settings once and play/vibrate
+            val vibrationEnabled = viewModel.settingsManager.vibrationFlow.first()
+            val soundEnabled = viewModel.settingsManager.soundEffectsFlow.first()
+
             while (true) {
-                // Check settings first, then vibrate/play
-                viewModel.settingsManager.vibrationFlow.first().let { if (it) viewModel.vibrate() }
-                viewModel.settingsManager.soundEffectsFlow.first().let { if (it) viewModel.playSound() }
-                delay(2000) // Repeat every 2 seconds
+                if (vibrationEnabled) viewModel.vibrate()
+                if (soundEnabled) viewModel.playSound()
+                delay(3000) // Repeat every 3 seconds to avoid sound overlapping too much
             }
         }
     }

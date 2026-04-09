@@ -50,6 +50,13 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = mediaSession?.player
+        if (player?.playWhenReady == false) {
+            stopSelf()
+        }
+    }
+
     override fun onDestroy() {
         mediaSession?.run {
             player.release()

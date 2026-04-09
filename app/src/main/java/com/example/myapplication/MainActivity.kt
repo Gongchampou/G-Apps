@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -49,8 +50,7 @@ class MainActivity : ComponentActivity() {
             
             MyApplicationTheme(darkTheme = isDarkMode) {
                 // This part handles "Backgrounding" - it saves your timer if you close the app.
-                val lifecycleOwner = LocalLifecycleOwner.current
-                DisposableEffect(lifecycleOwner) {
+                DisposableEffect(Unit) {
                     val observer = LifecycleEventObserver { _, event ->
                         when (event) {
                             Lifecycle.Event.ON_STOP -> viewModel.onEnterBackground()
@@ -58,9 +58,9 @@ class MainActivity : ComponentActivity() {
                             else -> {}
                         }
                     }
-                    lifecycleOwner.lifecycle.addObserver(observer)
+                    ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
                     onDispose {
-                        lifecycleOwner.lifecycle.removeObserver(observer)
+                        ProcessLifecycleOwner.get().lifecycle.removeObserver(observer)
                     }
                 }
                 

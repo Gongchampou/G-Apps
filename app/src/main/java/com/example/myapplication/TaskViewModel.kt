@@ -64,11 +64,16 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     val moneySpent: StateFlow<Float> = settingsManager.moneySpentFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
+    val keepScreenAwake: StateFlow<Boolean> = settingsManager.keepScreenAwakeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     val moneyEntries: StateFlow<List<MoneyEntry>> = moneyDao.getAllMoneyEntries()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _characters = MutableStateFlow<List<FocusCharacter>>(emptyList())
     val characters = _characters.asStateFlow()
+
+    private var mediaPlayer: android.media.MediaPlayer? = null
 
     init {
         loadCharacters()
@@ -226,6 +231,7 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playSound() {
+        stopSound()
         try {
             val tone = timerTone.value
             if (tone == "Default") {
@@ -233,20 +239,47 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
                 val r = RingtoneManager.getRingtone(getApplication(), notification)
                 r.play()
             } else {
-                // Play from assets/music
+                // Play from assets/music/ringtone
                 val assetManager = getApplication<Application>().assets
-                val fileName = "music/$tone.mp3"
+                val fileName = if (tone.contains(".")) "music/ringtone/$tone" else "music/ringtone/$tone.mp3"
+                
+                // Log for debugging (you can see this in Logcat)
+                android.util.Log.d("TaskViewModel", "Attempting to play: $fileName")
+                
                 val afd = assetManager.openFd(fileName)
-                val mediaPlayer = android.media.MediaPlayer()
-                mediaPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                val mp = android.media.MediaPlayer()
+                mediaPlayer = mp
+                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
-                mediaPlayer.prepare()
-                mediaPlayer.start()
-                mediaPlayer.setOnCompletionListener { it.release() }
+                mp.prepare()
+                mp.start()
+                mp.setOnCompletionListener { 
+                    it.release()
+                    if (mediaPlayer == it) mediaPlayer = null
+                }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("TaskViewModel", "Error playing sound", e)
+            // Fallback to default if custom fails
+            try {
+                val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val r = RingtoneManager.getRingtone(getApplication(), notification)
+                r.play()
+            } catch (e2: Exception) { e2.printStackTrace() }
         }
+    }
+
+    fun stopSound() {
+        mediaPlayer?.let {
+            if (it.isPlaying) it.stop()
+            it.release()
+        }
+        mediaPlayer = null
+    }
+
+    override fun onCleared() {
+        stopSound()
+        super.onCleared()
     }
 
     // Todo logic
@@ -339,6 +372,12 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     fun setMoneySpent(spent: Float) {
         viewModelScope.launch {
             settingsManager.setMoneySpent(spent)
+        }
+    }
+
+    fun setKeepScreenAwake(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setKeepScreenAwake(enabled)
         }
     }
 

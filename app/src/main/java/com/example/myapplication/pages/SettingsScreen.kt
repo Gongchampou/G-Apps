@@ -3,7 +3,8 @@ package com.example.myapplication.pages
 
 // LINE 4: We bring in 'clickable' so we can make parts of the screen respond when you touch them.
 import androidx.compose.foundation.clickable
-// LINE 6: These 'layout' tools help us stack things vertically (Column) or horizontally (Row).
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 // LINE 8: This makes the corners of our boxes look soft and rounded instead of pointy.
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,8 +61,10 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     val isVibrationEnabled by viewModel.isVibrationEnabled.collectAsState()
     // LINE 59: This checks if the app should play a sound when the timer stops.
     val isSoundEnabled by viewModel.isSoundEnabled.collectAsState()
+    // LINE 61: This checks if the screen should stay awake when the timer is running.
+    val keepScreenAwake by viewModel.keepScreenAwake.collectAsState()
     
-    // LINE 62: This tool handles opening websites for us.
+    // LINE 64: This tool handles opening websites for us.
     val uriHandler = LocalUriHandler.current
     // LINE 64: This tool helps find where the app stores its music files.
     val context = LocalContext.current
@@ -103,15 +106,21 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
     }
     
     // LINE 103: Column puts all the settings in a vertical list from top to bottom.
-    Column(modifier = Modifier.padding(24.dp)) {
-        
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+
         // LINE 106: The main title at the top of the settings page.
-        Text("General Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+        Text("General Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
 
         SettingsToggle("Dark Mode", isDarkMode) { viewModel.setDarkMode(it) }
         SettingsToggle("Notifications", isNotificationsEnabled) { viewModel.setNotifications(it) }
         SettingsToggle("Vibration", isVibrationEnabled) { viewModel.setVibration(it) }
         SettingsToggle("Sound", isSoundEnabled) { viewModel.setSound(it) }
+        SettingsToggle("Screen Awake", keepScreenAwake) { viewModel.setKeepScreenAwake(it) }
 
         // LINE 116: This setting controls how you see your money tracking (Circle vs Card).
         val showCircularProgress by viewModel.showCircularProgress.collectAsState()
@@ -156,6 +165,45 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
                 }
             }
         }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // LINE 158: TIMER TONE SELECTOR
+        val currentTone by viewModel.timerTone.collectAsState()
+        var showToneMenu by remember { mutableStateOf(false) }
+        val tones = listOf("Default", "berivan.opus", "doorbell.opus", "field-ring.opus", "fieldtone.opus", "jingle-bells.opus", "liquid-glass.opus", "normal.opus", "phone-call.opus", "ringtone.opus", "ringtone-car.opus", "spring-drip.mp3", "univ.opus", "univers.opus", "universfield.opus")
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Timer Tone", style = MaterialTheme.typography.bodyLarge)
+            Box {
+                OutlinedButton(
+                    onClick = { showToneMenu = true },
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(currentTone, fontSize = 14.sp)
+                }
+                DropdownMenu(
+                    expanded = showToneMenu,
+                    onDismissRequest = { showToneMenu = false }
+                ) {
+                    tones.forEach { tone ->
+                        DropdownMenuItem(
+                            text = { Text(tone) },
+                            onClick = {
+                                viewModel.setTimerTone(tone)
+                                showToneMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // LINE 158: E-BOOK FONT SIZE SLIDER - COMPACTED
         val ebookFontSize by viewModel.ebookFontSize.collectAsState()
@@ -169,10 +217,12 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
                 onValueChange = { viewModel.setEbookFontSize(it) },
                 valueRange = 12f..32f,
                 steps = 10,
-                modifier = Modifier.weight(1f).padding(horizontal = 12.dp).height(32.dp)
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp).height(18.dp)
             )
             Text("${ebookFontSize.toInt()}sp", fontSize = 12.sp, modifier = Modifier.width(36.dp))
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // LINE 176: DOWNLOADED MUSIC FOLDER - COMPACTED
         Surface(
@@ -195,23 +245,21 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp)) // Reduced from 24.dp
-
         // LINE 200: INFO SECTION
         // This shows the app version and developer name.
-        Text("Open Source Focus App v1.0", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        Text("Completely free and private. No accounts needed.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(12.dp))
         Text("About", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         Text("This app was created by Gongchampou Kamei.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        Spacer(modifier = Modifier.height(10.dp))
+        Text("G Apps Version: 1.0.0", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         // LINE 212: THE GITHUB BUTTON
         // This opens the project code on GitHub so anyone can see it.
         Button(
-            onClick = { 
+            onClick = {
                 uriHandler.openUri("https://github.com/Gongchampou/an-focus.git")
             },
             modifier = Modifier.fillMaxWidth().height(44.dp),
@@ -224,8 +272,7 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavController) {
 }
 
 /**
- * LINE 228: SettingsToggle is a special helper row for settings like 'Dark Mode'.
- * I have put back the Switch and reduced its size.
+ * SettingsToggle is a special helper row for settings like 'Dark Mode'.
  */
 @Composable
 fun SettingsToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
@@ -237,10 +284,8 @@ fun SettingsToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // LINE 242: The text description of the setting.
         Text(label, style = MaterialTheme.typography.bodyLarge)
-        
-        // LINE 245: THE COMPACT SWITCH
+
         // I put the switch back but scaled it down to 0.7x size to make it look smaller.
         Switch(
             checked = checked,

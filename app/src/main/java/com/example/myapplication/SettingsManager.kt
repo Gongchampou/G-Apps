@@ -24,6 +24,7 @@ class SettingsManager(context: Context) {
     val ebookFontSizeFlow: Flow<Float> = dataStore.data.map { it[EBOOK_FONT_SIZE] ?: 18f }
     val moneyLimitFlow: Flow<Float> = dataStore.data.map { it[MONEY_LIMIT] ?: 0f }
     val moneySpentFlow: Flow<Float> = dataStore.data.map { it[MONEY_SPENT] ?: 0f }
+    val keepScreenAwakeFlow: Flow<Boolean> = dataStore.data.map { it[KEEP_SCREEN_AWAKE] ?: false }
 
     suspend fun setDarkMode(enabled: Boolean) {
         dataStore.edit { it[DARK_MODE] = enabled }
@@ -65,6 +66,10 @@ class SettingsManager(context: Context) {
         dataStore.edit { it[MONEY_SPENT] = spent }
     }
 
+    suspend fun setKeepScreenAwake(enabled: Boolean) {
+        dataStore.edit { it[KEEP_SCREEN_AWAKE] = enabled }
+    }
+
     companion object {
         private val DARK_MODE = booleanPreferencesKey("dark_mode")
         private val NOTIFICATIONS = booleanPreferencesKey("notifications")
@@ -76,5 +81,6 @@ class SettingsManager(context: Context) {
         private val EBOOK_FONT_SIZE = floatPreferencesKey("ebook_font_size")
         private val MONEY_LIMIT = floatPreferencesKey("money_limit")
         private val MONEY_SPENT = floatPreferencesKey("money_spent")
+        private val KEEP_SCREEN_AWAKE = booleanPreferencesKey("keep_screen_awake")
     }
 }
