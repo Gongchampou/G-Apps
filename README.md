@@ -19,29 +19,31 @@ Welcome to the definitive guide for **My Focus App**, a holistic productivity an
 3.  [🧠 The Brain: TaskViewModel.kt](#-the-brain-taskviewmodelkt)
     *   [State Management](#state-management)
     *   [Business Logic Flow](#business-logic-flow)
-4.  [⏱ Focus Engine: Timer & Background Service](#-focus-engine-timer--background-service)
+    *   [Money Data Management](#money-data-management)
+4.  [💸 Money Tracking: MoneyTrackingScreen.kt Breakdown](#-money-tracking-moneytrackingscreenkt-breakdown)
+5.  [⏱ Focus Engine: Timer & Background Service](#-focus-engine-timer--background-service)
     *   [TimerService.kt Implementation](#timerservicekt-implementation)
     *   [Foreground Execution Strategy](#foreground-execution-strategy)
-5.  [🎵 Audio Suite: Media3 & PlaybackService](#-audio-suite-media3--playbackservice)
+6.  [🎵 Audio Suite: Media3 & PlaybackService](#-audio-suite-media3--playbackservice)
     *   [PlaybackService.kt Deep Dive](#playbackservicekt-deep-dive)
     *   [Dynamic Background Logic](#dynamic-background-logic)
-6.  [📚 E-Book Engine: Parsing & Rendering](#-e-book-engine-parsing--rendering)
+7.  [📚 E-Book Engine: Parsing & Rendering](#-e-book-engine-parsing--rendering)
     *   [Docx & HTML Parsers](#docx--html-parsers)
     *   [Theming & Eye-Care](#theming--eye-care)
-7.  [✅ Task Management: To-Do & Persistence](#-task-management-to-do--persistence)
+8.  [✅ Task Management: To-Do & Persistence](#-task-management-to-do--persistence)
     *   [Room Database Schema](#room-database-schema)
     *   [Gamification & Confetti](#gamification--confetti)
-8.  [⚙️ Persistence Layer: Settings & DataStore](#-persistence-layer-settings--datastore)
+9.  [⚙️ Persistence Layer: Settings & DataStore](#-persistence-layer-settings--datastore)
     *   [SettingsManager.kt](#settingsmanagerkt)
-9.  [🎨 UI/UX: Design Language & Compose](#-uiux-design-language--compose)
-10. [📂 File Manifest & Project Structure](#-file-manifest--project-structure)
-11. [🛠 Developer Appendix: Code Snippets & Logic](#-developer-appendix-code-snippets--logic)
-12. [🚀 Installation & Build Guide](#-installation--build-guide)
-13. [🛡 Privacy, Security & Compliance](#-privacy-security--compliance)
-14. [📈 Performance Optimization & Benchmarking](#-performance-optimization--benchmarking)
-15. [❓ Frequently Asked Questions (FAQ)](#-frequently-asked-questions-faq)
-16. [🗺 Future Roadmap & Version History](#-future-roadmap--version-history)
-17. [📜 Licensing & Credits](#-licensing--credits)
+10. [🎨 UI/UX: Design Language & Compose](#-uiux-design-language--compose)
+11. [📂 File Manifest & Project Structure](#-file-manifest--project-structure)
+12. [🛠 Developer Appendix: Code Snippets & Logic](#-developer-appendix-code-snippets--logic)
+13. [🚀 Installation & Build Guide](#-installation--build-guide)
+14. [🛡 Privacy, Security & Compliance](#-privacy-security--compliance)
+15. [📈 Performance Optimization & Benchmarking](#-performance-optimization--benchmarking)
+16. [❓ Frequently Asked Questions (FAQ)](#-frequently-asked-questions-faq)
+17. [🗺 Future Roadmap & Version History](#-future-roadmap--version-history)
+18. [📜 Licensing & Credits](#-licensing--credits)
 
 ---
 
@@ -50,9 +52,32 @@ Welcome to the definitive guide for **My Focus App**, a holistic productivity an
 **My Focus App** is engineered to be a sanctuary in your pocket. In an era where "Attention is Currency," we aim to provide a zero-distraction environment that merges productivity tools with relaxation suites. The app is built on the philosophy that focus isn't just about "doing more," but about "being more" in the moment.
 
 ### Core Objectives:
-- **Consolidation**: Eliminating context-switching by providing Music, Reading, and Timing in one app.
+- **Consolidation**: Eliminating context-switching by providing Music, Reading, Timing, and Budgeting in one app.
 - **Privacy**: 100% offline-first. No cloud tracking, no account required.
 - **Immersion**: Using Material Design 3 and smooth animations to reduce cognitive load.
+- **Financial Wellness**: Providing dynamic visual feedback to help users stay within their spending goals.
+
+---
+
+## ✨ Key Features
+
+### 💸 Smart Money Tracking
+- **Visual Budgeting**: Circular and linear progress bars that change color based on spending thresholds (Green < 50%, Orange 50-80%, Red > 80%).
+- **Blinking Alerts**: Dynamic "Pulse" animations when you exceed your monthly budget.
+- **GitHub-Style Safety**: Critical deletions require manual text confirmation (typing the entry description or the word "RESET") to prevent accidental data loss.
+- **Polished UX**: Beautifully crafted dialogs with "Noob-friendly" step-by-step instructions for developers.
+
+### ⏱ Deep Work Timer
+- **Foreground Service**: Keeps your timer running even if the app is closed.
+- **Persistent Notifications**: Control your focus session from the lock screen.
+
+### 🎵 Immersive Music
+- **Media3 Integration**: Seamless audio playback with background support.
+- **Nature & Lo-Fi tracks**: Pre-loaded focus sounds with dynamic GIF backgrounds.
+
+### 📚 Distraction-Free Reading
+- **Docx/HTML Support**: Read your favorite books directly in the app.
+- **Eye-Care Mode**: Sepia themes and adjustable font sizes for long reading sessions.
 
 ---
 
@@ -92,6 +117,37 @@ val isDarkMode: StateFlow<Boolean> = settingsManager.darkModeFlow
 When a user toggles a task, the ViewModel calculates the remaining time and decides whether to start or stop the `TimerService`.
 - If starting: It sends an Intent with `ACTION_START`.
 - If stopping: It sends `ACTION_STOP` and triggers haptic feedback.
+
+### Money Data Management
+The ViewModel acts as the guardian for financial data.
+- **`resetMoneyData()`**: A high-privilege function that performs a clean wipe of all money entries and resets the budget limit to its default ($1,000).
+- **Decoupled Logic**: Budget limits are stored separately from transaction history, ensuring that changing your monthly goal doesn't accidentally delete your past receipts.
+
+---
+
+## 💸 Money Tracking: MoneyTrackingScreen.kt Breakdown
+
+If you are new to coding, this screen might look complex, but it's just a set of instructions! We've added "Line Numbers" below so you can find exactly where the magic happens in the code.
+
+### 🗺️ The Layout (Where things are)
+- **LINE 69**: `MoneyTrackingScreen` is the "Main Blueprint". Think of this as the foundation of a house; everything on this page is built inside here.
+- **LINE 71-79**: **The Listeners**. These lines "listen" to the Brain (ViewModel). When you add an expense, these lines hear it and tell the screen to update immediately.
+- **LINE 93-108**: **The Header**. This is the bar at the top with the title. It has a "Back" arrow and a (+) button to set your budget limit.
+- **LINE 117-120**: **The Floating Button**. That big blue (+) button at the bottom? This is the code that makes it appear and opens the "Add Expense" box when clicked.
+
+### 🎨 The Visuals (Colors & Math)
+- **LINE 133-140**: **The Choice**. This code checks your settings to see if you want to see the "Big Spending Circle" or just a simple card with a progress bar.
+- **LINE 151-163**: **Over-Budget Warning**. If you spend too much, this code turns the text **RED** and makes the progress bar **BLINK**. It's like a visual alarm!
+- **LINE 241-279**: **Circular Money Progress**. This is a special tool that draws the circle. It calculates the math so the circle is Green (Safe), Orange (Warning), or Red (Danger) based on your budget.
+
+### 📜 The History (Your List)
+- **LINE 179-188**: **The Lazy List**. Instead of loading 1,000 items at once, this smart list only loads the entries you can actually see on the screen, saving your phone's battery.
+- **LINE 280-312**: **Money Entry Item**. This describes what a single receipt looks like in your list (the name, date, and price).
+
+### 🛡️ The Safety Nets (Settings & Reset)
+- **LINE 340-424**: **Set Limit Dialog**. This is the popup where you change your monthly budget goal.
+- **LINE 351-385**: **THE ULTIMATE SAFETY NET**. If you try to delete all your data, we make you type the word **"RESET"** in all caps. This prevents accidents—just like how GitHub protects important code!
+- **LINE 401-415**: **The Reset Button**. We gave this button a nice border and a soft red color so you can find it easily, but it looks different because it's a "Danger" action.
 
 ---
 
@@ -207,6 +263,7 @@ The app is a showcase of **Material Design 3**.
 ### UI Package: `com.example.myapplication.pages`
 - `TimerScreen.kt`: Circular focus timer.
 - `TodoScreen.kt`: Gamified task list.
+- `MoneyTrackingScreen.kt`: Dynamic budget tracker with visual alerts.
 - `EbookScreen.kt`: Document reader.
 - `MusicScreen.kt`: Now playing interface.
 - `OnlineMusicScreen.kt`: Download center.
@@ -226,6 +283,14 @@ In `OnlineMusicScreen.kt`, we use a buffered stream to download tracks:
 2.  Open output stream to `filesDir/music`.
 3.  Read in 8KB chunks while updating a `progressMap`.
 4.  Handle errors and partial downloads gracefully.
+
+### GitHub-Style Reset Confirmation
+To prevent accidental data loss, the "Reset All Data" action requires a manual string match:
+1.  User clicks "Reset".
+2.  A dialog appears with a disabled "Confirm" button.
+3.  User must type exactly `"RESET"` (case-sensitive) into an `OutlinedTextField`.
+4.  The button enables only when `userInput == "RESET"`.
+5.  This pattern significantly reduces "Fat Finger" errors in critical data operations.
 
 ---
 
@@ -280,4 +345,4 @@ A: To ensure the timer isn't killed when you lock your screen, which is critical
 
 ---
 
-*(This document represents a comprehensive 10,000-line conceptual breakdown of the My Focus App project)*
+*(This document represents a comprehensive line conceptual breakdown of the My, G Apps project)*

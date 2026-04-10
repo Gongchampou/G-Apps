@@ -7,6 +7,7 @@ package com.example.myapplication.pages
 import androidx.compose.animation.core.*
 // LINE 7: 'Canvas' is a tool that lets us draw custom shapes, like the spending circle, on the screen.
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 // LINE 9: 'Background' is used to set the color of the area behind our text and buttons.
 import androidx.compose.foundation.background
 // LINE 11: 'Layout' tools help us arrange our buttons and text in rows, columns, or boxes.
@@ -90,7 +91,19 @@ fun MoneyTrackingScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
     // LINE 89: 'deleteConfirmText' stores what the user types to confirm they really want to delete an item.
     var deleteConfirmText by remember { mutableStateOf("") }
 
-    // LINE 92: 'Scaffold' creates the standard layout structure with a top bar and a floating button.
+    // BLINKING ANIMATION: For when the budget is exceeded.
+    val infiniteTransition = rememberInfiniteTransition(label = "budgetBlink")
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blinkAlpha"
+    )
+
+    // LINE 104: 'Scaffold' creates the standard layout structure with a top bar and a floating button.
     Scaffold(
         // LINE 94: 'topBar' is the area at the very top that shows the page title and back button.
         topBar = {
@@ -140,32 +153,64 @@ fun MoneyTrackingScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
                 )
             } else {
                 // LINE 141: If not using the circle, show a 'Card' with the total spent and a progress line.
+                val progress = if (moneyLimit > 0) (moneySpent / moneyLimit) else 0f
+                val remaining = moneyLimit - moneySpent
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     colors = CardDefaults.cardColors(
-                        // LINE 145: If you spend more than your limit, the card turns Red as a warning.
-                        containerColor = if (moneyLimit > 0 && moneySpent >= moneyLimit) 
-                            MaterialTheme.colorScheme.errorContainer 
-                        else MaterialTheme.colorScheme.primaryContainer
+                        // LINE 145: If you spend more than your limit, the card turns Red/Orange as a warning.
+                        containerColor = when {
+                            progress >= 1f -> MaterialTheme.colorScheme.errorContainer
+                            progress >= 0.8f -> Color(0xFFFFEBEE) // Very Light Red
+                            progress >= 0.5f -> Color(0xFFFFF3E0) // Light Orange
+                            else -> MaterialTheme.colorScheme.primaryContainer
+                        }
                     )
                 ) {
                     // LINE 151: Inside the card, we show the numbers clearly.
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Total Spent: $currency${String.format("%.2f", moneySpent)}", style = MaterialTheme.typography.titleMedium)
                         if (moneyLimit > 0f) {
-                            Text("Limit: $currency${String.format("%.2f", moneyLimit)}", style = MaterialTheme.typography.bodySmall)
+                            val remainingText = if (remaining < 0) 
+                                "-$currency${String.format("%.2f", -remaining)}" 
+                            else 
+                                "Remaining: $currency${String.format("%.2f", remaining)}"
+                            
+                            Text(
+                                text = remainingText, 
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (remaining < 0) Color.Red else Color.Unspecified,
+                                fontWeight = if (remaining < 0) FontWeight.Bold else FontWeight.Normal
+                            )
                             // LINE 155: A straight horizontal line that fills up as you spend more money.
                             LinearProgressIndicator(
-                                progress = { (moneySpent / moneyLimit).coerceIn(0f, 1f) },
+                                progress = { progress.coerceIn(0f, 1f) },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                color = if (moneySpent >= moneyLimit) Color.Red else MaterialTheme.colorScheme.primary
+                                color = when {
+                                    progress >= 1f -> Color.Red.copy(alpha = blinkAlpha)
+                                    progress >= 0.8f -> Color.Red
+                                    progress >= 0.5f -> Color(0xFFFFA500) // Orange
+                                    else -> MaterialTheme.colorScheme.primary
+                                }
                             )
                         }
                     }
                 }
             }
 
-            // LINE 166: A header title for the list of spending history.
+            // LINE 164: Show a text alert if budget is reaching high levels (80%+).
+            val currentProgress = if (moneyLimit > 0) (moneySpent / moneyLimit) else 0f
+            if (currentProgress >= 0.8f) {
+                Text(
+                    text = if (currentProgress >= 1f) "🚨 BUDGET EXCEEDED!" else "⚠️: 80% REACHED",
+                    color = Color.Red,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            // LINE 176: A header title for the list of spending history.
             Text("Entries", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start).padding(bottom = 4.dp))
 
             // LINE 169: 'LazyColumn' is the most efficient way to show a long list on Android.
@@ -191,7 +236,12 @@ fun MoneyTrackingScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
 
         // LINE 190: Logic for the "Set Budget Limit" popup window.
         if (showLimitDialog) {
-            SetLimitDialog(currentLimit = moneyLimit, onDismiss = { showLimitDialog = false }, onSave = { limit -> viewModel.setMoneyLimit(limit); showLimitDialog = false })
+            SetLimitDialog(
+                currentLimit = moneyLimit, 
+                onDismiss = { showLimitDialog = false }, 
+                onSave = { limit -> viewModel.setMoneyLimit(limit); showLimitDialog = false },
+                onResetAll = { viewModel.resetMoneyData() }
+            )
         }
         
         // LINE 195: GITHUB-STYLE DELETE CONFIRMATION (The "Asking Twice" part).
@@ -246,8 +296,8 @@ fun MoneyTrackingScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
 fun CircularMoneyProgress(spent: Float, limit: Float, currency: String, modifier: Modifier = Modifier) {
     // LINE 244: Math: Calculate what percentage of the budget has been used (from 0.0 to 1.0).
     val progress = if (limit > 0) (spent / limit).coerceIn(0f, 1f) else 0f
-    // LINE 246: Math: Calculate how much money is left until the limit is reached.
-    val remaining = (limit - spent).coerceAtLeast(0f)
+    // LINE 246: Math: Calculate how much money is left (can be negative if over budget).
+    val remaining = limit - spent
     
     // LINE 249: 'animateFloatAsState' makes the circle "grow" smoothly when you add an expense.
     val animatedProgress by animateFloatAsState(
@@ -255,6 +305,25 @@ fun CircularMoneyProgress(spent: Float, limit: Float, currency: String, modifier
         animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
         label = "moneyProgress"
     )
+
+    // BLINKING ANIMATION for exceeded limit
+    val infiniteTransition = rememberInfiniteTransition(label = "circularBlink")
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blinkAlpha"
+    )
+
+    // Determine color based on spending percentage: Green < 50%, Orange 50-80%, Red > 80%
+    val progressColor = when {
+        progress >= 0.8f -> Color.Red
+        progress >= 0.5f -> Color(0xFFFFA500) // Orange
+        else -> Color(0xFF00C853) // Green
+    }
 
     // LINE 256: 'Box' puts the text (Amount Left) right in the middle of the circle.
     Box(contentAlignment = Alignment.Center, modifier = modifier.size(180.dp)) {
@@ -268,13 +337,29 @@ fun CircularMoneyProgress(spent: Float, limit: Float, currency: String, modifier
 
             // LINE 266: Draw the "Shadow" circle (Gray) so you can see the full track.
             drawArc(color = Color.LightGray.copy(alpha = 0.3f), startAngle = 135f, sweepAngle = 270f, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-            // LINE 268: Draw the "Filled" circle (Green/Red) based on how much you spent.
-            drawArc(color = if (progress >= 1f) Color.Red else Color(0xFF00C853), startAngle = 135f, sweepAngle = 270f * animatedProgress, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+            // LINE 268: Draw the "Filled" circle (Green/Orange/Red) based on how much you spent.
+            // It blinks if we are at 100% or more.
+            val finalAlpha = if (spent >= limit && limit > 0) blinkAlpha else 1f
+            drawArc(color = progressColor.copy(alpha = finalAlpha), startAngle = 135f, sweepAngle = 270f * animatedProgress, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
         }
         // LINE 271: The text in the center of the circle.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = if (progress >= 1f) "Over Limit" else "Safe", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-            Text(text = "$currency${String.format("%.2f", remaining)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val statusText = when {
+                spent >= limit && limit > 0 -> "Over Limit"
+                progress >= 0.8f -> "Alert!"
+                progress >= 0.5f -> "Warning"
+                else -> "Safe"
+            }
+            val statusColor = if (progress >= 0.8f) Color.Red else Color.Gray
+
+            Text(text = statusText, style = MaterialTheme.typography.labelSmall, color = statusColor)
+            
+            val remainingText = if (remaining < 0) 
+                "-$currency${String.format("%.2f", -remaining)}" 
+            else 
+                "$currency${String.format("%.2f", remaining)}"
+                
+            Text(text = remainingText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if (remaining < 0) Color.Red else Color.Unspecified)
         }
     }
 }
@@ -325,10 +410,11 @@ fun AddMoneyEntryDialog(onDismiss: () -> Unit, onAdd: (Float, String) -> Unit) {
         title = { Text("Add Expense", style = MaterialTheme.typography.titleMedium) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // LINE 327: Text box for the amount.
-                OutlinedTextField(value = amountStr, onValueChange = { amountStr = it }, label = { Text("How much?") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 // LINE 329: Text box for what the money was spent on.
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("What for?") }, modifier = Modifier.fillMaxWidth())
+                // LINE 327: Text box for the amount.
+                OutlinedTextField(value = amountStr, onValueChange = { amountStr = it }, label = { Text("Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+
             }
         },
         // LINE 333: The "Add" button only works if you typed a valid number.
@@ -340,18 +426,99 @@ fun AddMoneyEntryDialog(onDismiss: () -> Unit, onAdd: (Float, String) -> Unit) {
 
 // LINE 340: The popup dialog that appears when you want to change your budget limit.
 @Composable
-fun SetLimitDialog(currentLimit: Float, onDismiss: () -> Unit, onSave: (Float) -> Unit) {
+fun SetLimitDialog(currentLimit: Float, onDismiss: () -> Unit, onSave: (Float) -> Unit, onResetAll: () -> Unit) {
     // LINE 343: Remembers the budget you typed.
     var limitStr by remember { mutableStateOf(if (currentLimit > 0) currentLimit.toString() else "") }
+    // LINE 345: 'showResetConfirm' is a light switch to show the "Are you REALLY sure?" reset dialog.
+    var showResetConfirm by remember { mutableStateOf(false) }
+    // LINE 347: 'resetConfirmText' stores the word "RESET" that the user must type.
+    var resetConfirmText by remember { mutableStateOf("") }
+
+    if (showResetConfirm) {
+        // LINE 351: GITHUB-STYLE RESET CONFIRMATION (The ultimate safety net).
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("Reset All Data?", color = Color.Red, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("This will delete EVERY entry in your history and back to zero.")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Type 'RESET' to confirm:", style = MaterialTheme.typography.labelSmall)
+                    OutlinedTextField(
+                        value = resetConfirmText,
+                        onValueChange = { resetConfirmText = it },
+                        placeholder = { Text("RESET") },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    // LINE 369: Only works if they type 'RESET' exactly.
+                    enabled = resetConfirmText == "RESET",
+                    onClick = {
+                        onResetAll()
+                        showResetConfirm = false
+                        onDismiss() // Close the main dialog too
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set Spending Limit", style = MaterialTheme.typography.titleMedium) },
+        title = { Text("Budget Settings", style = MaterialTheme.typography.titleMedium) },
         text = {
-            // LINE 349: Simple text box to enter a new maximum spending amount.
-            OutlinedTextField(value = limitStr, onValueChange = { limitStr = it }, label = { Text("Maximum Amount") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // STEP 1: Monthly Budget Input
+                // This is where you set the maximum amount you want to spend each month.
+                OutlinedTextField(
+                    value = limitStr, 
+                    onValueChange = { limitStr = it }, 
+                    label = { Text("Monthly Limit Amount") }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // STEP 2: The "Danger Zone" Reset Button
+                // Use this ONLY if you want to wipe your entire history and start from zero!
+                // We made it look like a nice bordered button so it's easy to find but clearly for "Resetting".
+                OutlinedButton(
+                    onClick = { showResetConfirm = true },
+                    modifier = Modifier.padding(top = 8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Red.copy(alpha = 0.7f) // Faded red to show it is a "Danger" action.
+                    ),
+                    border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f)), // A soft border to keep it looking clean.
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
+                    shape = RoundedCornerShape(8.dp) // Smooth corners to match the rest of the app.
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Reset Data", style = MaterialTheme.typography.labelMedium)
+                }
+            }
         },
-        confirmButton = { Button(onClick = { val limit = limitStr.toFloatOrNull() ?: 0f; onSave(limit) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        // STEP 3: Save Your New Limit
+        confirmButton = { 
+            Button(onClick = { 
+                val limit = limitStr.toFloatOrNull() ?: 0f
+                onSave(limit) 
+            }) { Text("Save Limit") } 
+        },
+        // STEP 4: Close without changing anything
+        dismissButton = { 
+            TextButton(onClick = onDismiss) { Text("Close") } 
+        }
     )
 }

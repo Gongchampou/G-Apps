@@ -363,7 +363,11 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     fun setMoneyLimit(limit: Float) {
         viewModelScope.launch {
             settingsManager.setMoneyLimit(limit)
-            // When setting a new limit, clear all data and reset spent to zero
+        }
+    }
+
+    fun resetMoneyData() {
+        viewModelScope.launch {
             moneyDao.deleteAllMoneyEntries()
             setMoneySpent(0f)
         }
