@@ -1,3 +1,13 @@
+<div align="center">
+  <img src="read-images/images1.png" width="80" height="120" />
+  <img src="read-images/images2.png" width="80" height="120" />
+  <img src="read-images/images3.png" width="80" height="120" />
+  <img src="read-images/images4.png" width="80" height="120" />
+  <img src="read-images/images5.png" width="80" height="120" />
+  <img src="read-images/images6.png" width="80" height="120" />
+  <img src="read-images/images7.png" width="80" height="120" />
+  <img src="https://placehold.co/80x120?text=Offline" width="80" height="120" />
+</div>
 # 🌟 My Focus App: The Comprehensive Technical & User Documentation
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
