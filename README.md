@@ -1,7 +1,6 @@
 <div align="center">
-  <a href="read-images/G Apps.webp"><img src="read-images/G Apps.webp" width="225px" height="346px" /></a>
-  
-  <a href="read-images/images7.png"><img src="read-images/images7.png" width="225px" height="346px" /></a>
+  <a href="read-images/G Apps.webp"><img src="read-images/G Apps.webp" width="860px" height="507px" /></a>
+
 </div>
 # 🌟 My Focus App: The Comprehensive Technical & User Documentation
 
