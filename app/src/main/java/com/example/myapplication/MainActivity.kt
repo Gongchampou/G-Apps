@@ -169,13 +169,21 @@ fun BottomNavigationBar(navController: NavHostController) {
                         restoreState = true
                     }
                 },
-                // CHANGE: Use theme colors for better visibility in both Light and Dark mode
+                // CHANGE: iOS Blue color for selected items with a subtle indicator
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    selectedIconColor = Color(0xFF007AFF),
+                    selectedTextColor = Color(0xFF007AFF),
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                    indicatorColor = Color(0xFF007AFF).copy(alpha = 0.1f)
+
+                    /* UNCOMMENT BELOW FOR BLACK & WHITE THEME
+                    selectedIconColor = MaterialTheme.colorScheme.onSurface,
+                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    indicatorColor = Color.Transparent
+                    */
                 )
             )
         }
