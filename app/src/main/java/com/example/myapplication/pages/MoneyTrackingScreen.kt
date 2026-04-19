@@ -1,5 +1,5 @@
 // LINE 1: This is the package name. It tells the app exactly where this file is located in the project.
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 // LINE 3: This empty line makes the code easier to read for humans.
 
@@ -57,9 +57,9 @@ import androidx.compose.ui.unit.dp
 // LINE 55: 'sp' (Scale-independent Pixels) is the standard unit for measuring text size on Android.
 import androidx.compose.ui.unit.sp
 // LINE 57: 'MoneyEntry' is the "Template" or "Model" for a single spending record (Amount, Date, etc).
-import com.example.myapplication.MoneyEntry
+import com.gongchampou.gapps.MoneyEntry
 // LINE 59: 'TaskViewModel' is the "Brain" of the app that handles all the math and database work.
-import com.example.myapplication.TaskViewModel
+import com.gongchampou.gapps.TaskViewModel
 // LINE 61: 'SimpleDateFormat' helps us turn computer timestamps into readable dates like "Oct 25".
 import java.text.SimpleDateFormat
 // LINE 63: 'java.util.*' provides standard tools for dates and lists used throughout the code.

@@ -1,5 +1,5 @@
 // LINE 1: This is the package name. It tells the app that this file belongs in the 'pages' folder.
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 // LINE 4: We bring in 'clickable' so we can make parts of the screen respond when you touch them.
 import androidx.compose.foundation.clickable
@@ -35,11 +35,11 @@ import androidx.compose.ui.unit.sp
 // LINE 32: 'NavController' is the tool that lets the user jump from one screen to another.
 import androidx.navigation.NavController
 // LINE 34: 'Screen' is a list of all the different pages in our app.
-import com.example.myapplication.Screen
+import com.gongchampou.gapps.Screen
 // LINE 36: 'TaskViewModel' is the "Brain" that stores your settings and data.
-import com.example.myapplication.TaskViewModel
+import com.gongchampou.gapps.TaskViewModel
 // LINE 38: 'Track' is a template for a single music song (Title, Artist, etc.).
-import com.example.myapplication.Track
+import com.gongchampou.gapps.Track
 // LINE 40: 'Gson' is a tool that reads the 'music_list.json' file so we know what songs exist.
 import com.google.gson.Gson
 // LINE 42: 'TypeToken' helps Gson understand how to turn text into a list of songs.

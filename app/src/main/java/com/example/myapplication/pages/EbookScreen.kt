@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -40,7 +40,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
-import com.example.myapplication.Ebook
+import com.gongchampou.gapps.Ebook
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -50,7 +50,7 @@ import com.google.gson.reflect.TypeToken
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EbookScreen(viewModel: com.example.myapplication.TaskViewModel) {
+fun EbookScreen(viewModel: com.gongchampou.gapps.TaskViewModel) {
     val context = LocalContext.current // Gets current Android context for asset access
     
     // INSTRUCTION: Get font size from ViewModel

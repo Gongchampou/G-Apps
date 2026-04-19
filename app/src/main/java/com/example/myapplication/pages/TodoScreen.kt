@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
@@ -23,8 +23,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.myapplication.Todo
-import com.example.myapplication.TaskViewModel
+import com.gongchampou.gapps.Todo
+import com.gongchampou.gapps.TaskViewModel
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.text.KeyboardOptions
 

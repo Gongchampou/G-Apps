@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import android.content.ComponentName
 import androidx.compose.foundation.background
@@ -35,8 +35,8 @@ import coil.compose.rememberAsyncImagePainter
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.decode.SvgDecoder
-import com.example.myapplication.PlaybackService
-import com.example.myapplication.Track
+import com.gongchampou.gapps.PlaybackService
+import com.gongchampou.gapps.Track
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -50,7 +50,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
-import com.example.myapplication.Screen
+import com.gongchampou.gapps.Screen
 
 /**
  * MUSIC SCREEN

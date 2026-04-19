@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.gongchampou.gapps
 
 import android.app.*
 import android.content.Context

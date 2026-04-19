@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.gongchampou.gapps
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey

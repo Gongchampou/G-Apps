@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.gongchampou.gapps
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.room.Entity

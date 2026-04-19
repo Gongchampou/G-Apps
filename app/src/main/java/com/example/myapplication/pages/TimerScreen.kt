@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -45,9 +45,9 @@ import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.platform.LocalContext
 import android.app.Activity
 import android.view.WindowManager
-import com.example.myapplication.Task
-import com.example.myapplication.TaskViewModel
-import com.example.myapplication.formatDuration
+import com.gongchampou.gapps.Task
+import com.gongchampou.gapps.TaskViewModel
+import com.gongchampou.gapps.formatDuration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

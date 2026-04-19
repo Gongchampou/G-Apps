@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.gongchampou.gapps
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -30,8 +30,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.myapplication.pages.*
-import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.gongchampou.gapps.pages.*
+import com.gongchampou.gapps.ui.theme.MyApplicationTheme
 
 /**
  * MAIN ACTIVITY
@@ -169,10 +169,13 @@ fun BottomNavigationBar(navController: NavHostController) {
                         restoreState = true
                     }
                 },
-                // CHANGE: Change the color codes here to match your brand!
+                // CHANGE: Use theme colors for better visibility in both Light and Dark mode
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFF007AFF), // iOS Blue
-                    selectedTextColor = Color(0xFF007AFF)
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer
                 )
             )
         }

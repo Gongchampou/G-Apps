@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -19,7 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.Track
+import com.gongchampou.gapps.Track
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers

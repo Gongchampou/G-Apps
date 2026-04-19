@@ -1,4 +1,4 @@
-package com.example.myapplication.pages
+package com.gongchampou.gapps.pages
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,8 +20,8 @@ import androidx.media3.session.SessionToken
 import android.content.ComponentName
 import androidx.media3.common.Player
 import java.io.File
-import com.example.myapplication.PlaybackService
-import com.example.myapplication.Track
+import com.gongchampou.gapps.PlaybackService
+import com.gongchampou.gapps.Track
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken

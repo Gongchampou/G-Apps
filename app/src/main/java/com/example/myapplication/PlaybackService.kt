@@ -1,4 +1,4 @@
-package com.example.myapplication
+package com.gongchampou.gapps
 
 import android.app.PendingIntent
 import android.content.Intent
